@@ -14,8 +14,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageButton;
 
+import org.lunapark.dev.bullramp.entity.GameObject;
 import org.lunapark.dev.bullramp.explosion.Explosion;
-import org.lunapark.dev.bullramp.map.MapGen;
 
 import java.util.ArrayList;
 import java.util.Random;
@@ -32,54 +32,42 @@ import fr.arnaudguyon.smartgl.opengl.Texture;
 import fr.arnaudguyon.smartgl.tools.WavefrontModel;
 import fr.arnaudguyon.smartgl.touch.TouchHelperEvent;
 
-import static android.opengl.GLES20.GL_POLYGON_OFFSET_FILL;
-import static android.opengl.GLES20.glDisable;
-import static android.opengl.GLES20.glEnable;
-import static android.opengl.GLES20.glPolygonOffset;
-
 public class MainActivity extends Activity implements SmartGLViewController, View.OnTouchListener {
 
     private final int divider = 1, roadSegments = 10, segmentLength = 10;
+    private Texture txRed;
+    private float speedBase = 0.3f, speed, speedLimit = 0.6f;
     private SmartGLView mSmartGLView;
-    private ImageButton btnLeft, btnRight;
     private float farLength = segmentLength * roadSegments;
-
     private Texture mSpriteTexture;
     private Sprite mSprite;
-
     private Object3D player;
     private RenderPassObject3D renderPassObject3D;
     private RenderPassSprite renderPassSprite;
-
     private ArrayList<Texture> textures;
     private ArrayList<Object3D> object3Ds, road, lighters;
     private int lightMult = 4;
-
     private ArrayList<Explosion> explosions;
-
     private float cameraShakeDistance = 1.0f, shake;
     private float camX = 5f, camY = 9f, camZ = 15f;
     //    private float camX = 2f, camY = 4f, camZ = 7f;
     //    private float camX = 0f, camY = 9f, camZ = 0f;
     private float camRotX = -90;
-
     private SoundPool soundPool;
     private int soundIdExplosion;
     private GameObject goBridge;
     private int screenW, screenH;
-
     // Colors
     private int colHoloLight = Color.argb(128, 51, 181, 229);
     private int colHoloDark = Color.argb(128, 0, 153, 204);
     private int colHoloBright = Color.argb(128, 0, 221, 255);
     private int colDkGray = Color.argb(128, 64, 64, 64);
     private int colRed = Color.argb(140, 240, 0, 0);
-
     // Textures
-    private Texture txRed;
+    private Texture txHoloBright;
     private Texture txRoad;
-    private Texture txWhite;
-    private Texture txOrange;
+    private Texture txDkGray;
+    private Texture txExplosion;
     private DIRECTION currentDirection = DIRECTION.STRAIGHT;
     private Random random;
 
@@ -114,8 +102,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         mSmartGLView.setDefaultRenderer(this);
         mSmartGLView.setController(this);
 
-        btnLeft = (ImageButton) findViewById(R.id.btnLeft);
-        btnRight = (ImageButton) findViewById(R.id.btnRight);
+        ImageButton btnLeft = (ImageButton) findViewById(R.id.btnLeft);
+        ImageButton btnRight = (ImageButton) findViewById(R.id.btnRight);
         btnLeft.setOnTouchListener(this);
         btnRight.setOnTouchListener(this);
 
@@ -139,8 +127,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         });
 
         soundIdExplosion = soundPool.load(this, R.raw.explosion, 1);
-
-
     }
 
     @Override
@@ -165,11 +151,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         smartGLView.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
         SmartGLRenderer renderer = smartGLView.getSmartGLRenderer();
-//        renderer.setClearColor(81f / 255f, 149f / 255f, 58f / 255f, 1f);
-        renderer.setClearColor(0, 0, 0, 1f);
 
         RenderPassSprite bgSprite = new RenderPassSprite();
-
         renderPassObject3D = new RenderPassObject3D(RenderPassObject3D.ShaderType.SHADER_TEXTURE, true, true);
         renderPassSprite = new RenderPassSprite();
 
@@ -179,32 +162,24 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         // Textures
         textures = new ArrayList<>();
-        txRed = createTexture(colHoloBright, Color.TRANSPARENT);
-
-        txOrange = createTexture(Color.YELLOW, Color.rgb(255, 112, 16));
+        txHoloBright = createTexture(colHoloBright);
+        txExplosion = createTexture(Color.YELLOW, Color.rgb(255, 112, 16));
         txRoad = createTextureRoad();
-
-        txWhite = createTexture(colDkGray);
-        Texture txPlayer = createTexture(colRed);
-
+        txDkGray = createTexture(colDkGray);
+        txRed = createTexture(colRed);
 
         // Create sprites
         mSpriteTexture = new Texture(this, R.drawable.col_circle);
-//        mSpriteTexture = createMap();
         textures.add(mSpriteTexture);
 
-        mSprite = new Sprite(60, 60); // 120 x 120 pixels
+        mSprite = new Sprite(120, 120); // 120 x 120 pixels
         mSprite.setPivot(0.5f, 0.5f);  // set position / rotation axis to the middle of the sprite
         mSprite.setPos(60, 60);
         mSprite.setTexture(mSpriteTexture);
-
-//        bgSprite.addSprite(mSprite);
         renderPassSprite.addSprite(mSprite);
 
         Texture txBackground = createTexture(Color.BLACK, Color.DKGRAY, 400, 240);
         Sprite spriteBg = new Sprite(screenW, screenH);
-//        spriteBg.setPos(screenW / 2, screenH / 2);
-//        spriteBg.setPivot(0.5f, 0.5f);
         spriteBg.setTexture(txBackground);
         bgSprite.addSprite(spriteBg);
 
@@ -217,24 +192,20 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
             object3Ds.add(cube);
         }
 
-
         // Create player
-//        player = createObject3(R.raw.bulldozer, txTruck, txRuby, txOrange, false);
-        player = createObject(R.raw.bulldozer, txPlayer, false);
+        player = createObject(R.raw.bulldozer, createTexture(Color.argb(128, 255, 112, 16)), false);
         player.setScale(0.001f, 0.001f, 0.001f);
         player.setPos(0, 0, 0);
         player.addRotY(180);
-
+        speed = speedBase;
 
         createEnvironment();
-
 
         // Prepare explosions
         explosions = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            Explosion explosion = new Explosion(this, renderPassObject3D, R.raw.cube, txOrange);
+            Explosion explosion = new Explosion(this, renderPassObject3D, R.raw.cube, txExplosion);
             explosions.add(explosion);
-
         }
     }
 
@@ -251,11 +222,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         int he = 20;
         lighters = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            Object3D lighter1 = createObject(R.raw.cube, txRed, false);
+            Object3D lighter1 = createObject(R.raw.cube, txHoloBright, false);
             lighter1.setPos(segmentLength * i * lightMult - farLength / 2, he / 2, -segmentLength);
             lighter1.setScale(0.25f, he, 0.25f);
 
-            Object3D lighter2 = createObject(R.raw.cube, txRed, false);
+            Object3D lighter2 = createObject(R.raw.cube, txHoloBright, false);
             lighter2.setPos(segmentLength * i * lightMult - farLength / 2, he / 2, segmentLength);
             lighter2.setScale(0.25f, he, 0.25f);
 
@@ -264,16 +235,16 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         }
 
         ArrayList<Object3D> bridge = new ArrayList<>();
-        Object3D bridge1 = createObject(R.raw.cube, txWhite, false);
+        Object3D bridge1 = createObject(R.raw.cube, txDkGray, false);
         bridge1.setPos(0, 2.5f, -50 - segmentLength);
         bridge1.setScale(10, 4, 100);
         bridge.add(bridge1);
-        Object3D bridge2 = createObject(R.raw.cube, txWhite, false);
+        Object3D bridge2 = createObject(R.raw.cube, txDkGray, false);
         bridge2.setPos(0, 2.5f, 50 + segmentLength);
         bridge2.setScale(10, 4, 100);
         bridge.add(bridge2);
 
-        Object3D bridge3 = createObject(R.raw.cube, txWhite, false);
+        Object3D bridge3 = createObject(R.raw.cube, txDkGray, false);
         bridge3.setPos(0, 5, 0);
         bridge3.setScale(10, 0.5f, 40);
         bridge.add(bridge3);
@@ -283,42 +254,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         goBridge.setPosition(20, 0, 0);
     }
 
-    private Texture createMap() {
-        int[][] map = MapGen.getInstance().getMap();
-        int w = MapGen.getInstance().w;
-        int h = MapGen.getInstance().h;
-        Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-
-        bitmap.eraseColor(Color.WHITE); // Закрашиваем цветом
-
-        int step = segmentLength;
-
-        for (int i = 0; i < w; i++) {
-            for (int j = 0; j < h; j++) {
-                if (map[i][j] == 1) {
-                    bitmap.setPixel(i, j, Color.RED);
-                    Object3D block = createObject(R.raw.cube, txRed, false);
-                    block.setScale(step, step / 2, step);
-                    block.setPos(i * step + step / 2, step / 4, j * step - step / 2);
-
-                } else {
-                    Object3D block = createObject(R.raw.plane, txWhite, false);
-                    block.setPos(i * step, 0, j * step);
-                }
-            }
-        }
-        Texture texture = new Texture(w, h, bitmap);
-        textures.add(texture);
-        return texture;
-
-    }
-
     private void addObject(float x, float z) {
         for (Object3D object3D : object3Ds) {
             if (!object3D.isVisible()) {
                 float dx = random.nextInt(segmentLength) + x;
                 float dz = random.nextInt(segmentLength) - segmentLength / 2;
-//                Object3D cube = createObject(R.raw.cube, txDkGray, true);
                 object3D.setPos(dx, 0.5f, dz);
                 object3D.setVisible(true);
                 break;
@@ -356,14 +296,10 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         for (int i = 0; i < w / 4; i++) {
             for (int j = 0; j < h / 4; j++) {
-//                int offset = j % 2;
                 bitmap.setPixel(i * 4, j * 4, colorDetails);
             }
         }
-
-
         Texture texture = new Texture(w, h, bitmap);
-
         textures.add(texture);
         return texture;
     }
@@ -392,18 +328,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         return object3D;
     }
 
-    private Object3D createObject3(int objFile, Texture texture1, Texture texture2, Texture texture3, boolean addToList) {
-        WavefrontModel model = new WavefrontModel.Builder(this, objFile)
-                .addTexture("Color1", texture1)
-                .addTexture("Color2", texture2)
-                .addTexture("Color3", texture3)
-                .create();
-        Object3D object3D = model.toObject3D();
-        if (addToList) object3Ds.add(object3D);
-        renderPassObject3D.addObject(object3D);
-        return object3D;
-    }
-
     @Override
     public void onReleaseView(SmartGLView smartGLView) {
         for (Texture t : textures) {
@@ -419,11 +343,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     @Override
     public void onTick(SmartGLView smartGLView) {
         SmartGLRenderer renderer = smartGLView.getSmartGLRenderer();
-//        GLES20.glEnable(GL_POLYGON_OFFSET_FILL);
-        glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(2.0f, 2.0f);
-
-        glDisable(GL_POLYGON_OFFSET_FILL);
         float frameDuration = renderer.getFrameDuration();
         update(frameDuration, renderer.getCamera());
     }
@@ -440,23 +359,14 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 break;
             }
         }
-
-//        toneGenerator.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT, 100);
     }
 
     private void update(float delta, OpenGLCamera camera) {
 
         // Update sprite
         if (mSprite != null) {
-//            float newX = mSprite.getPosX() + (frameDuration * 100);
-//            float newY = mSprite.getPosY();
-//            if (newX > 600) {
-//                newX = 0;
-//            }
-//            mSprite.setPos(newX, newY);
-
-//            float newRot = mSprite.getRotation() + (delta * 100);
-//            mSprite.setRotation(newRot);
+            float newRot = mSprite.getRotation() + (speed * 20);
+            mSprite.setRotation(newRot);
         }
 
         // Update environment
@@ -478,11 +388,9 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         switch (currentDirection) {
             case LEFT:
                 if (playerRotY < 215) k = 200;
-//                k = 200;
                 break;
             case RIGHT:
                 if (playerRotY > 135) k = -200;
-//                k = -200;
                 break;
             case STRAIGHT:
                 if (playerRotY < 177) {
@@ -495,14 +403,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 }
         }
 
-
-//        if (playerRotY > 135 && playerRotY < 215)
         player.addRotY(k * delta);
-//        if (currentDirection == DIRECTION.STRAIGHT) player.setRotation(playerRotX, , playerRotZ);
 
         // Move player
         double playerAngle = Math.toRadians(360 - player.getRotY());
-        float speed = 0.3f;
+        if (speed < speedLimit) speed += 0.0001f;
         float z = (float) (-speed * Math.sin(playerAngle));
         float x = (float) (-speed * Math.cos(playerAngle));
 
@@ -513,22 +418,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         player.setPos(playerPosX, playerPosY, playerPosZ);
 
         // Check collisions
-        //        for (Iterator<Object3D> iterator = object3Ds.iterator(); iterator.hasNext(); ) {
-//            Object3D object3D = iterator.next();
-//            float ox = object3D.getPosX();
-//            float oy = object3D.getPosY();
-//            float oz = object3D.getPosZ();
-//            float distance = getDistance(ox, oz, player.getPosX(), player.getPosZ());
-//            if (distance < 1.7f) {
-//                object3D.setVisible(false);
-//                explosion(ox, oy, oz);
-//                boom = true;
-////                iterator.remove();
-//            } else {
-//                object3D.addRotY(100 * delta);
-//            }
-//        }
-
         for (Object3D object3D : object3Ds) {
             if (object3D.isVisible()) {
                 float ox = object3D.getPosX();
@@ -538,7 +427,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 if (distance < 1.7f) {
                     object3D.setVisible(false);
                     explosion(ox, oy, oz);
-
+                    speed = speedBase;
                 } else {
                     object3D.addRotY(100 * delta);
                 }
@@ -549,20 +438,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
             }
         }
 
-        // Check explosions
-//        if (!explosions.isEmpty()) {
-//
-//            for (Iterator<Explosion> iterator = explosions.iterator(); iterator.hasNext(); ) {
-//                Explosion explosion = iterator.next();
-//                if (explosion.getSize() > 10) {
-//                    explosion.dispose();
-//                    iterator.remove();
-//                } else {
-//                    explosion.update();
-//                }
-//            }
-//        }
-
         if (!explosions.isEmpty()) {
             for (Explosion explosion : explosions) {
                 explosion.update();
@@ -570,25 +445,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         }
 
         // Update camera
-
-        // Camera follow player
-//        playerPosX = player.getPosX();
-//        playerPosY = player.getPosY();
-//        playerPosZ = player.getPosZ();
-
-        float cx;
-        float cy;
-        float cz;
-
-
         float alpha = (float) Math.sin(playerPosX * 0.1f);
-
-
         if (shake > 0) shake -= 2 * delta;
-
-        cx = playerPosX + camX + shake + alpha;
-        cy = playerPosY + camY + shake;
-        cz = playerPosZ + camZ + shake + alpha;
+        float cx = playerPosX + camX + shake + alpha;
+        float cy = playerPosY + camY + shake;
+        float cz = playerPosZ + camZ + shake + alpha;
 
         camera.setPosition(cx, cy, cz);
         camera.setRotation(alpha - 40, alpha * 2, 0);
@@ -644,30 +505,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
     @Override
     public void onTouchEvent(SmartGLView smartGLView, TouchHelperEvent touchHelperEvent) {
-
-//        SmartGLRenderer renderer = smartGLView.getSmartGLRenderer();
-//
-//        if (touchHelperEvent.getType() == TouchHelperEvent.TouchEventType.SINGLETOUCH) {
-//            float x = touchHelperEvent.getX(0);
-//            float y = touchHelperEvent.getY(0);
-//
-//            float h = renderer.getHeight();
-//            float w = renderer.getWidth();
-//
-//
-//            if (x < h / 2) {
-//                currentDirection = DIRECTION.LEFT;
-//            } else {
-//
-//                currentDirection = DIRECTION.RIGHT;
-//            }
-//        }
-//
-//        if (touchHelperEvent.getType() == TouchHelperEvent.TouchEventType.SINGLEUNTOUCH) {
-//            currentDirection = DIRECTION.STRAIGHT;
-//        }
     }
 
-
     private enum DIRECTION {RIGHT, LEFT, STRAIGHT}
+
 }

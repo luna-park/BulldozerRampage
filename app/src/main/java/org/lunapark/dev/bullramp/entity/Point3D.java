@@ -1,4 +1,4 @@
-package org.lunapark.dev.bullramp;
+package org.lunapark.dev.bullramp.entity;
 
 /**
  * Created by znak on 22.01.2017.

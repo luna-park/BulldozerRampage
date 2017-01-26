@@ -1,4 +1,4 @@
-package org.lunapark.dev.bullramp;
+package org.lunapark.dev.bullramp.entity;
 
 import java.util.ArrayList;
 
@@ -46,23 +46,23 @@ public class GameObject {
         return x;
     }
 
-    public float getY() {
-        return y;
-    }
-
-    public float getZ() {
-        return z;
-    }
-
     public void setX(float x) {
         this.x = x;
         setPosition(x, y, z);
+    }
+
+    public float getY() {
+        return y;
     }
 
     public void setY(float y) {
         this.y = y;
         setPosition(x, y, z);
 
+    }
+
+    public float getZ() {
+        return z;
     }
 
     public void setZ(float z) {
