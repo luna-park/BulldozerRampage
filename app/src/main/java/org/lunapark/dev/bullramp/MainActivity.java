@@ -39,9 +39,9 @@ import static android.opengl.GLES20.glPolygonOffset;
 
 public class MainActivity extends Activity implements SmartGLViewController, View.OnTouchListener {
 
+    private final int divider = 1, roadSegments = 10, segmentLength = 10;
     private SmartGLView mSmartGLView;
     private ImageButton btnLeft, btnRight;
-    private final int divider = 1, roadSegments = 10, segmentLength = 10;
     private float farLength = segmentLength * roadSegments;
 
     private Texture mSpriteTexture;
@@ -68,6 +68,21 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private GameObject goBridge;
     private int screenW, screenH;
 
+    // Colors
+    private int colHoloLight = Color.argb(128, 51, 181, 229);
+    private int colHoloDark = Color.argb(128, 0, 153, 204);
+    private int colHoloBright = Color.argb(128, 0, 221, 255);
+    private int colDkGray = Color.argb(128, 64, 64, 64);
+    private int colRed = Color.argb(140, 240, 0, 0);
+
+    // Textures
+    private Texture txRed;
+    private Texture txRoad;
+    private Texture txWhite;
+    private Texture txOrange;
+    private DIRECTION currentDirection = DIRECTION.STRAIGHT;
+    private Random random;
+
     @Override
     public boolean onTouch(View v, MotionEvent event) {
         switch (event.getAction()) {
@@ -88,13 +103,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         return false;
     }
-
-    private enum DIRECTION {RIGHT, LEFT, STRAIGHT}
-
-    private DIRECTION currentDirection = DIRECTION.STRAIGHT;
-
-    private Random random;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -169,36 +177,20 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         renderer.addRenderPass(renderPassObject3D);  // add it only once for all 3D Objects
         renderer.addRenderPass(renderPassSprite);  // add it only once for all Sprites
 
-        // Colors
-
-//        holo blue light = 33b5e5 ( rgb: 51, 181, 229 )
-//        holo blue dark = 0099cc ( rgb: 0, 153 204 )
-//        holo blue bright = 00ddff ( rgb: 0, 221, 255 )﻿
-
-        int colHoloLight = Color.argb(128, 51, 181, 229);
-        int colHoloDark = Color.argb(128, 0, 153, 204);
-        int colHoloBright = Color.argb(128, 0, 221, 255);
-        int colDkGray = Color.argb(180, 64, 64, 64);
-        int colRed = Color.argb(140, 240, 0, 0);
         // Textures
         textures = new ArrayList<>();
-//        Texture txGreen = createTexture(Color.GREEN, Color.BLACK);
-        Texture txRed = createTexture(colHoloBright, Color.TRANSPARENT);
-//        Texture txRuby = createTexture(Color.BLACK, Color.RED);
-//        Texture txYellow = createTexture(Color.YELLOW, Color.BLACK);
-//        Texture txDkGray = createTexture(Color.DKGRAY, Color.BLACK);
-//        Texture txLtGray = createTexture(Color.LTGRAY, Color.BLACK);
-        Texture txOrange = createTexture(Color.YELLOW, Color.rgb(255, 112, 16));
-//        txTruck = createTexture(Color.BLACK, Color.DKGRAY);
-        Texture txRoad = createTextureRoad();
+        txRed = createTexture(colHoloBright, Color.TRANSPARENT);
 
-        Texture txWhite = createTexture(colDkGray, colDkGray);
-        Texture txPlayer = createTexture(colRed, colRed);
+        txOrange = createTexture(Color.YELLOW, Color.rgb(255, 112, 16));
+        txRoad = createTextureRoad();
+
+        txWhite = createTexture(colDkGray);
+        Texture txPlayer = createTexture(colRed);
 
 
         // Create sprites
-//        mSpriteTexture = new Texture(this, R.drawable.col_circle);
-        mSpriteTexture = createMap();
+        mSpriteTexture = new Texture(this, R.drawable.col_circle);
+//        mSpriteTexture = createMap();
         textures.add(mSpriteTexture);
 
         mSprite = new Sprite(60, 60); // 120 x 120 pixels
@@ -233,6 +225,20 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         player.setPos(0, 0, 0);
         player.addRotY(180);
 
+
+        createEnvironment();
+
+
+        // Prepare explosions
+        explosions = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            Explosion explosion = new Explosion(this, renderPassObject3D, R.raw.cube, txOrange);
+            explosions.add(explosion);
+
+        }
+    }
+
+    private void createEnvironment() {
         // Create road
         road = new ArrayList<>();
         for (int i = 0; i < roadSegments; i++) {
@@ -245,11 +251,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         int he = 20;
         lighters = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
-            Object3D lighter1 = createObject(R.raw.cube, txWhite, false);
+            Object3D lighter1 = createObject(R.raw.cube, txRed, false);
             lighter1.setPos(segmentLength * i * lightMult - farLength / 2, he / 2, -segmentLength);
             lighter1.setScale(0.25f, he, 0.25f);
 
-            Object3D lighter2 = createObject(R.raw.cube, txWhite, false);
+            Object3D lighter2 = createObject(R.raw.cube, txRed, false);
             lighter2.setPos(segmentLength * i * lightMult - farLength / 2, he / 2, segmentLength);
             lighter2.setScale(0.25f, he, 0.25f);
 
@@ -275,28 +281,30 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         goBridge = new GameObject();
         goBridge.setObjects(bridge);
         goBridge.setPosition(20, 0, 0);
-
-
-        // Prepare explosions
-        explosions = new ArrayList<>();
-        for (int i = 0; i < 5; i++) {
-            Explosion explosion = new Explosion(this, renderPassObject3D, R.raw.cube, txOrange);
-            explosions.add(explosion);
-
-        }
     }
 
     private Texture createMap() {
         int[][] map = MapGen.getInstance().getMap();
         int w = MapGen.getInstance().w;
         int h = MapGen.getInstance().h;
-        Bitmap bitmap = Bitmap.createBitmap(w + 1, h + 1, Bitmap.Config.ARGB_8888);
+        Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 
-        bitmap.eraseColor(Color.BLACK); // Закрашиваем цветом
+        bitmap.eraseColor(Color.WHITE); // Закрашиваем цветом
+
+        int step = segmentLength;
 
         for (int i = 0; i < w; i++) {
             for (int j = 0; j < h; j++) {
-                if (map[i][j] == 1) bitmap.setPixel(i, j, Color.WHITE);
+                if (map[i][j] == 1) {
+                    bitmap.setPixel(i, j, Color.RED);
+                    Object3D block = createObject(R.raw.cube, txRed, false);
+                    block.setScale(step, step / 2, step);
+                    block.setPos(i * step + step / 2, step / 4, j * step - step / 2);
+
+                } else {
+                    Object3D block = createObject(R.raw.plane, txWhite, false);
+                    block.setPos(i * step, 0, j * step);
+                }
             }
         }
         Texture texture = new Texture(w, h, bitmap);
@@ -316,6 +324,16 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 break;
             }
         }
+    }
+
+    private Texture createTexture(int colorBg) {
+        int tx = 1;
+        Bitmap bitmap = Bitmap.createBitmap(tx + 1, tx + 1, Bitmap.Config.ARGB_8888);
+
+        bitmap.eraseColor(colorBg); // Закрашиваем цветом
+        Texture texture = new Texture(tx, tx, bitmap);
+        textures.add(texture);
+        return texture;
     }
 
     private Texture createTexture(int colorBg, int colorDetails) {
@@ -364,13 +382,12 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         return texture;
     }
 
-
-    private Object3D createObject(int objFile, Texture texture, boolean addToList) {
+    private Object3D createObject(int objFile, Texture texture, boolean breakable) {
         WavefrontModel model = new WavefrontModel.Builder(this, objFile)
                 .addTexture("", texture)
                 .create();
         Object3D object3D = model.toObject3D();
-        if (addToList) object3Ds.add(object3D);
+        if (breakable) object3Ds.add(object3D);
         renderPassObject3D.addObject(object3D);
         return object3D;
     }
@@ -411,7 +428,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         update(frameDuration, renderer.getCamera());
     }
 
-
     // Explosion
     private void explosion(float x, float y, float z) {
         for (Explosion explosion : explosions) {
@@ -439,8 +455,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 //            }
 //            mSprite.setPos(newX, newY);
 
-            float newRot = mSprite.getRotation() + (delta * 100);
-            mSprite.setRotation(newRot);
+//            float newRot = mSprite.getRotation() + (delta * 100);
+//            mSprite.setRotation(newRot);
         }
 
         // Update environment
@@ -462,9 +478,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         switch (currentDirection) {
             case LEFT:
                 if (playerRotY < 215) k = 200;
+//                k = 200;
                 break;
             case RIGHT:
                 if (playerRotY > 135) k = -200;
+//                k = -200;
                 break;
             case STRAIGHT:
                 if (playerRotY < 177) {
@@ -472,6 +490,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 } else if (playerRotY > 183) {
                     k = -200;
                 } else {
+                    k = 0;
                     player.setRotation(playerRotX, 180, playerRotZ);
                 }
         }
@@ -623,7 +642,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         }
     }
 
-
     @Override
     public void onTouchEvent(SmartGLView smartGLView, TouchHelperEvent touchHelperEvent) {
 
@@ -649,4 +667,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 //            currentDirection = DIRECTION.STRAIGHT;
 //        }
     }
+
+
+    private enum DIRECTION {RIGHT, LEFT, STRAIGHT}
 }
