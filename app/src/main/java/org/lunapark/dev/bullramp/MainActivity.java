@@ -34,12 +34,22 @@ import fr.arnaudguyon.smartgl.touch.TouchHelperEvent;
 
 public class MainActivity extends Activity implements SmartGLViewController, View.OnTouchListener {
 
-    private final int divider = 1, roadSegments = 10, segmentLength = 10;
-    private float roadLimit = segmentLength / 2;
+    private final int divider = 1;
+
+    // Road params
+    private int roadSegments = 10, roadSegmentLength = 10;
+    private float roadLimit = roadSegmentLength / 2;
+    private float farLength = roadSegmentLength * roadSegments;
+    private float halfFarLength = farLength / 2;
+
+    // Lighters params
+    private int lightSegments = roadSegments / 3, lightSegmentLength = roadSegmentLength * 3;
+
+
     private Texture txRed;
-    private float speedBase = 0.4f, speed, speedLimit = speedBase * 3;
+    private float speedBase = 0.6f, speed, speedLimit = speedBase * 3;
     private SmartGLView mSmartGLView;
-    private float farLength = segmentLength * roadSegments;
+
     private Texture mSpriteTexture;
     private Sprite mSprite;
     private Object3D player, sideRoadUp, sideRoadDown;
@@ -48,9 +58,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private ArrayList<Texture> textures;
     private ArrayList<Object3D> object3Ds, road, lighters;
     private ArrayList<Bitmap> bitmaps;
-    private int lightMult = 4;
     private ArrayList<Explosion> explosions;
-    private float cameraShakeDistance = 1.0f, shake;
+    private float cameraShakeDistance = 2.0f, shake;
     private float camX = 8f, camY = 10f, camZ = 15f;
     //    private float camX = 2f, camY = 4f, camZ = 7f;
     //    private float camX = 0f, camY = 9f, camZ = 0f;
@@ -186,9 +195,9 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         mSpriteTexture = new Texture(this, R.drawable.doubleaxes);
         textures.add(mSpriteTexture);
 
-        mSprite = new Sprite(120, 120); // 120 x 120 pixels
+        mSprite = new Sprite(120 / divider, 120 / divider); // 120 x 120 pixels
         mSprite.setPivot(0.5f, 0.5f);  // set position / rotation axis to the middle of the sprite
-        mSprite.setPos(60, 60);
+        mSprite.setPos(60 / divider, 60 / divider);
         mSprite.setTexture(mSpriteTexture);
         renderPassSprite.addSprite(mSprite);
 
@@ -228,20 +237,21 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         road = new ArrayList<>();
         for (int i = 0; i < roadSegments; i++) {
             Object3D ground = createObject(R.raw.plane, txRoad, false);
-            ground.setPos(segmentLength * i - farLength / 2, -0.5f, segmentLength / 2);
-//            ground.setScale(segmentLength , 0, segmentLength);
+            ground.setPos(roadSegmentLength * i - halfFarLength, -0.5f, roadSegmentLength / 2);
+//            ground.setScale(roadSegmentLength , 0, roadSegmentLength);
             road.add(ground);
         }
 
         int lighterHeight = 10;
         lighters = new ArrayList<>();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < lightSegments; i++) {
+            float x = lightSegmentLength * i - halfFarLength;
             Object3D lighter1 = createObject(R.raw.cube, txLtGray, false);
-            lighter1.setPos(segmentLength * i * lightMult - farLength / 2, lighterHeight / 2, -segmentLength);
+            lighter1.setPos(x, lighterHeight / 2 - 0.5f, -roadSegmentLength);
             lighter1.setScale(0.25f, lighterHeight, 0.25f);
 
             Object3D lighter2 = createObject(R.raw.cube, txLtGray, false);
-            lighter2.setPos(segmentLength * i * lightMult - farLength / 2, lighterHeight / 2, segmentLength);
+            lighter2.setPos(x, lighterHeight / 2 - 0.5f, roadSegmentLength);
             lighter2.setScale(0.25f, lighterHeight, 0.25f);
 
             lighters.add(lighter1);
@@ -249,27 +259,28 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         }
 
         int scale = 5;
+        float sideRoadX = (farLength + lightSegmentLength - scale) / 2;
         sideRoadDown = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
-        sideRoadDown.setPos(farLength / 2, -0.5f, segmentLength * scale + segmentLength / 2);
+        sideRoadDown.setPos(sideRoadX, -0.5f, roadSegmentLength * scale + roadSegmentLength / 2);
         sideRoadDown.setScale(0.75f, 1, scale);
 
         sideRoadUp = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
-        sideRoadUp.setPos(farLength / 2, -0.5f, -segmentLength / 2);
+        sideRoadUp.setPos(sideRoadX, -0.5f, -roadSegmentLength / 2);
         sideRoadUp.setScale(0.75f, 1, scale);
 
         ArrayList<Object3D> bridge = new ArrayList<>();
         Object3D bridge1 = createObject(R.raw.cube, txLtGray, false);
-        bridge1.setPos(0, 1.5f, -50 - segmentLength);
+        bridge1.setPos(0, 1.5f, -50 - roadSegmentLength);
         bridge1.setScale(10, 4, 100);
         bridge.add(bridge1);
         Object3D bridge2 = createObject(R.raw.cube, txLtGray, false);
-        bridge2.setPos(0, 1.5f, 50 + segmentLength);
+        bridge2.setPos(0, 1.5f, 50 + roadSegmentLength);
         bridge2.setScale(10, 4, 100);
         bridge.add(bridge2);
 
         Object3D bridge3 = createObject(R.raw.cube, txLtGray, false);
         bridge3.setPos(0, 4.0f, 0);
-        bridge3.setScale(10, 1, 40);
+        bridge3.setScale(10, 1, 100);
         bridge.add(bridge3);
 
 //        Object3D plane = createObject(R.raw.plane, createTexture(Color.RED), false);
@@ -285,8 +296,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private void addObject(float x) {
         for (Object3D object3D : object3Ds) {
             if (!object3D.isVisible()) {
-                float dx = random.nextInt(segmentLength) + x;
-                float dz = random.nextInt(segmentLength) - segmentLength / 2;
+                float dx = random.nextInt(roadSegmentLength) + x;
+                float dz = random.nextInt(roadSegmentLength) - roadSegmentLength / 2;
                 object3D.setPos(dx, 0.1f, dz * 1.3f + 1);
                 object3D.setVisible(true);
                 break;
@@ -344,7 +355,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     }
 
     private Texture createTextureRoad() {
-        int size = segmentLength * 4;
+        int size = roadSegmentLength * 4;
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
 
         bitmap.eraseColor(Color.DKGRAY); // Закрашиваем цветом
@@ -421,7 +432,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         }
 
         // Update environment
-        updateEnvironment();
+        updateEnvironment(playerPosX);
 
         // Check collisions
         for (Object3D object3D : object3Ds) {
@@ -503,49 +514,48 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         player.addRotY(k * delta);
     }
 
-    private void updateEnvironment() {
+    private void updateEnvironment(float playerPosX) {
 
-        float playerPosX = player.getPosX();
+        float farFromPlayer = playerPosX - farLength;
 
         for (Object3D object3D : road) {
             float x = object3D.getPosX();
             float y = object3D.getPosY();
             float z = object3D.getPosZ();
 
-            if (x < playerPosX - farLength / 2) {
+            if (x < playerPosX - halfFarLength) {
                 object3D.setPos(x + farLength, y, z);
                 addObject(object3D.getPosX());
                 break;
             }
 
-            if (x > playerPosX + farLength / 2) {
+            if (x > playerPosX + halfFarLength) {
                 object3D.setPos(x - farLength, y, z);
                 addObject(object3D.getPosX());
                 break;
             }
         }
 
-        float dx = farLength * lightMult / 2;
         for (Object3D object3D : lighters) {
             float x = object3D.getPosX();
             float y = object3D.getPosY();
             float z = object3D.getPosZ();
 
 
-            if (x < playerPosX - farLength / 2) {
-                object3D.setPos(x + dx, y, z);
+            if (x < playerPosX - halfFarLength) {
+                object3D.setPos(x + farLength, y, z);
             }
 
-//            if (x > playerPosX + farLength / 2) {
+//            if (x > playerPosX + halfFarLength) {
 //                object3D.setPos(x - farLength * lightMult / 2, y, z);
 //            }
 
 
         }
 
-
-        if (goBridge.getX() < playerPosX - farLength) {
-            goBridge.setX(playerPosX + farLength);
+        float bridgeX = goBridge.getX();
+        if (bridgeX < farFromPlayer) {
+            goBridge.setX(bridgeX + farLength * 2);
         }
 
 
@@ -556,7 +566,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         float sideRoadDownPosY = sideRoadDown.getPosY();
         float sideRoadDownPosZ = sideRoadDown.getPosZ();
 
-        if (sideRoadPosX < playerPosX - farLength) {
+        if (sideRoadPosX < farFromPlayer) {
             sideRoadUp.setPos(sideRoadPosX + farLength * 2, sideRoadUpPosY, sideRoadUpPosZ);
             sideRoadDown.setPos(sideRoadPosX + farLength * 2, sideRoadDownPosY, sideRoadDownPosZ);
             sideRoadDown.setVisible(random.nextBoolean());
