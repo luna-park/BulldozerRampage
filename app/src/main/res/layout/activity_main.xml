@@ -12,24 +12,47 @@
         android:layout_height="match_parent" />
 
     <ImageButton
-        android:src="@android:drawable/ic_media_rew"
+        android:id="@+id/btnLeft"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
-        android:id="@+id/btnLeft"
         android:layout_alignTop="@+id/btnRight"
-        android:padding="@dimen/margin" />
+        android:padding="@dimen/margin"
+        android:src="@android:drawable/ic_media_rew" />
 
     <ImageButton
-        android:src="@android:drawable/ic_media_ff"
+        android:id="@+id/btnRight"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true"
-        android:id="@+id/btnRight"
-        android:padding="@dimen/margin" />
+        android:layout_alignParentRight="true"
+        android:padding="@dimen/margin"
+        android:src="@android:drawable/ic_media_ff" />
+
+    <TextView
+        android:id="@+id/tvPlace"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:text="/"
+        android:textColor="@android:color/white"
+        android:textSize="36sp"
+        android:textStyle="normal|bold" />
+
+    <TextView
+        android:id="@+id/tvDistance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/tvPlace"
+        android:gravity="right"
+        android:text="@string/distance"
+        android:textColor="@android:color/white" />
 
 </RelativeLayout>
