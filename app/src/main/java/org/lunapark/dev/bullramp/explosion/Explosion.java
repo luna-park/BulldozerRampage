@@ -57,8 +57,8 @@ public class Explosion {
         if (visible) {
             if (size < 10) {
                 size += 0.5f;
-                for (Particle particle : particles) {
-                    particle.setDistance(size);
+                for (int i = 0; i < particles.size(); i++) {
+                    particles.get(i).setDistance(size);
                 }
             } else {
                 setVisible(false);
@@ -71,8 +71,8 @@ public class Explosion {
         this.x = x;
         this.y = y;
         this.z = z;
-        for (Particle particle : particles) {
-            particle.setPosition(x, y, z);
+        for (int i = 0; i < particles.size(); i++) {
+            particles.get(i).setPosition(x, y, z);
         }
     }
 
@@ -83,8 +83,8 @@ public class Explosion {
     public void setVisible(boolean visible) {
         this.visible = visible;
 
-        for (Particle particle : particles) {
-            particle.setVisible(visible);
+        for (int i = 0; i < particles.size(); i++) {
+            particles.get(i).setVisible(visible);
         }
     }
 }

@@ -20,7 +20,6 @@ public class Particle {
         x0 = object3D.getPosX();
         y0 = object3D.getPosY();
         z0 = object3D.getPosZ();
-//        Log.e("BULLDOZER", "Zo :" + z0);
     }
 
     private void compute() {

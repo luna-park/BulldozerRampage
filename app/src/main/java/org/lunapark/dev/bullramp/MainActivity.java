@@ -57,7 +57,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private RenderPassSprite renderPassSprite;
     private ArrayList<Texture> textures;
     private ArrayList<Object3D> object3Ds, road, lighters;
-    private ArrayList<Bitmap> bitmaps;
     private ArrayList<Explosion> explosions;
     private float cameraShakeDistance = 2.0f, shake;
     private float camX = 8f, camY = 10f, camZ = 15f;
@@ -183,7 +182,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         // Textures
         textures = new ArrayList<>();
-        bitmaps = new ArrayList<>();
         txHoloBright = createTexture(colHoloBright);
         txExplosion = createTexture(Color.YELLOW, Color.rgb(255, 112, 16));
         txRoad = createTextureRoad();
@@ -295,11 +293,12 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     }
 
     private void addObject(float x) {
-        for (Object3D object3D : object3Ds) {
+        for (int i = 0; i < object3Ds.size(); i++) {
+            Object3D object3D = object3Ds.get(i);
             if (!object3D.isVisible()) {
                 float dx = random.nextInt(roadSegmentLength / 4) + x;
                 float dz = random.nextInt(roadSegmentLength) - roadSegmentLength / 2;
-                object3D.setPos(dx, 0.15f, dz);
+                object3D.setPos(dx, 0.2f, dz);
                 object3D.setVisible(true);
                 break;
             }
@@ -312,7 +311,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         bitmap.eraseColor(colorBg); // Закрашиваем цветом
         Texture texture = new Texture(tx, tx, bitmap);
         textures.add(texture);
-        bitmaps.add(bitmap);
         return texture;
     }
 
@@ -327,7 +325,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         bitmap.setPixel(tx, tx, colorDetails);
         Texture texture = new Texture(tx, tx, bitmap);
         textures.add(texture);
-        bitmaps.add(bitmap);
         return texture;
     }
 
@@ -351,7 +348,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         }
         Texture texture = new Texture(w, h, bitmap);
         textures.add(texture);
-        bitmaps.add(bitmap);
         return texture;
     }
 
@@ -366,7 +362,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         Texture texture = new Texture(size, size, bitmap);
         textures.add(texture);
-        bitmaps.add(bitmap);
         return texture;
     }
 
@@ -385,10 +380,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         for (Texture t : textures) {
             if (t != null) t.release();
         }
-
-        for (Bitmap bitmap : bitmaps) {
-            bitmap.recycle();
-        }
     }
 
     @Override
@@ -405,8 +396,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
     // Explosion
     private void explosion(float x, float y, float z) {
-        for (Explosion explosion : explosions) {
-
+        for (int i = 0; i < explosions.size(); i++) {
+            Explosion explosion = explosions.get(i);
             if (!explosion.isVisible()) {
                 explosion.setPosition(x, y, z);
                 explosion.setVisible(true);
@@ -436,7 +427,8 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         updateEnvironment(playerPosX);
 
         // Check collisions
-        for (Object3D object3D : object3Ds) {
+        for (int i = 0; i < object3Ds.size(); i++) {
+            Object3D object3D = object3Ds.get(i);
             if (object3D.isVisible()) {
                 float ox = object3D.getPosX();
                 float oy = object3D.getPosY();
@@ -445,7 +437,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 if (distance < 1.7f) {
                     object3D.setVisible(false);
                     explosion(ox, oy, oz);
-//                    speed = speedBase;
+                    speed = speedBase;
                 } else {
 //                    object3D.addRotY(100 * delta);
 
@@ -465,9 +457,10 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
             }
         }
 
+        // Update explosions
         if (!explosions.isEmpty()) {
-            for (Explosion explosion : explosions) {
-                explosion.update();
+            for (int i = 0; i < explosions.size(); i++) {
+                explosions.get(i).update();
             }
         }
 
@@ -528,7 +521,9 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         float farFromPlayer = playerPosX - farLength;
 
-        for (Object3D object3D : road) {
+        for (int i = 0; i < road.size(); i++) {
+            Object3D object3D = road.get(i);
+
             float x = object3D.getPosX();
             float y = object3D.getPosY();
             float z = object3D.getPosZ();
@@ -545,12 +540,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 break;
             }
         }
-
-        for (Object3D object3D : lighters) {
+        for (int i = 0; i < lighters.size(); i++) {
+            Object3D object3D = lighters.get(i);
             float x = object3D.getPosX();
             float y = object3D.getPosY();
             float z = object3D.getPosZ();
-
 
             if (x < playerPosX - halfFarLength) {
                 object3D.setPos(x + farLength, y, z);
