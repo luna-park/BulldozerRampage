@@ -47,7 +47,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
 
     private Texture txRed;
-    private float speedBase = 0.6f, speed, speedLimit = speedBase * 3;
+    private float speedBase = 0.3f, speed, speedLimit = speedBase * 3;
     private SmartGLView mSmartGLView;
 
     private Texture mSpriteTexture;
@@ -209,9 +209,10 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         // Create 3D objects
         object3Ds = new ArrayList<>();
 
-        for (int i = 0; i < 20; i++) {
-            Object3D cube = createObject(R.raw.cube, txRed, true);
+        for (int i = 0; i < 10; i++) {
+            Object3D cube = createObject(R.raw.cube, txHoloBright, true);
             cube.setVisible(false);
+            cube.setScale(2, 1, 1);
             object3Ds.add(cube);
         }
 
@@ -226,7 +227,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         // Prepare explosions
         explosions = new ArrayList<>();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 3; i++) {
             Explosion explosion = new Explosion(this, renderPassObject3D, R.raw.cube, txExplosion);
             explosions.add(explosion);
         }
@@ -296,9 +297,9 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private void addObject(float x) {
         for (Object3D object3D : object3Ds) {
             if (!object3D.isVisible()) {
-                float dx = random.nextInt(roadSegmentLength) + x;
+                float dx = random.nextInt(roadSegmentLength / 4) + x;
                 float dz = random.nextInt(roadSegmentLength) - roadSegmentLength / 2;
-                object3D.setPos(dx, 0.1f, dz * 1.3f + 1);
+                object3D.setPos(dx, 0.15f, dz);
                 object3D.setVisible(true);
                 break;
             }
@@ -444,14 +445,23 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                 if (distance < 1.7f) {
                     object3D.setVisible(false);
                     explosion(ox, oy, oz);
-                    speed = speedBase;
+//                    speed = speedBase;
                 } else {
-                    object3D.addRotY(100 * delta);
+//                    object3D.addRotY(100 * delta);
+
                 }
 
-                if (distance > 100) {
+                if (ox < playerPosX - halfFarLength) {
                     object3D.setVisible(false);
+                    object3D.setPos(ox + farLength * 2, oy, oz);
                 }
+
+                if (oz > 0) {
+                    ox += speedBase / 4;
+                } else {
+                    ox -= speedBase / 4;
+                }
+                object3D.setPos(ox, oy, oz);
             }
         }
 
