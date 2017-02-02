@@ -43,19 +43,27 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private float roadLimit = roadSegmentLength / 2;
     private float farLength = roadSegmentLength * roadSegments;
     private float halfFarLength = farLength / 2;
+    private float roadPosY = -0.5f;
+    private float deltaZ = 0.5f;
 
     // Lighters params
     private int lightSegments = roadSegments / 3, lightSegmentLength = roadSegmentLength * 3;
+    private int lighterHeight = 10;
 
+    // Side roads params
+    private int scaleSideRoad = 5;
+    private float sideRoadX = (farLength + lightSegmentLength - scaleSideRoad) / 2;
 
     // Player and bots params
     private float speedBase = 0.3f, speed, speedLimit = speedBase * 3;
+    private float velocity = 0.0005f; // 0.0002f;
     private float speedBots = speedBase / 4;
     private float speedOpponents = speedBase * 1.2f;
     private int numOpponents = 7;
     private int place = numOpponents + 1;
     private int totalPlayers = place;
-    private int distance = 0;
+    private int distance = 0, finishDistance = 1000;
+    private boolean cheatNoDeccelerate = true;
 
     private SmartGLView mSmartGLView;
 
@@ -72,10 +80,10 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private ArrayList<Object3D> bots, opponents, road, lighters;
     private ArrayList<Explosion> explosions;
     private float cameraShakeDistance = 2.0f, shake;
-    private float camX = 8f, camY = 10f, camZ = 15f;
-    //    private float camX = 2f, camY = 4f, camZ = 7f;
-    //    private float camX = 0f, camY = 9f, camZ = 0f;
-    private float camRotX = -90;
+    private float camXgame = 8f, camYgame = 10f, camZgame = 15f;
+    private float camRotXgame = 40, camRotYgame = -1, camRotZgame = 0;
+
+
     private SoundPool soundPool;
     private int sfxExplosion, sfxHit;
     private GameObject goBridge;
@@ -237,11 +245,9 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         // Create 3D objects
         bots = new ArrayList<>();
-
         for (int i = 0; i < 10; i++) {
-            Object3D bot = createObject(R.raw.cube, txHoloBright, true);
-            bot.setScale(2, 1, 1);
-
+            Object3D bot = createObject(R.raw.truck, txHoloBright, true);
+            bot.setScale(0.001f, 0.001f, 0.001f);
             bot.setVisible(false);
             bots.add(bot);
         }
@@ -250,7 +256,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         for (int i = 0; i < numOpponents; i++) {
             Object3D opponent = createObject(R.raw.cube, txRed, false);
             opponent.setScale(2, 1, 1);
-            opponent.setPos(i * farLength + farLength, 0.2f, 0);
             opponent.setVisible(true);
             opponents.add(opponent);
         }
@@ -258,9 +263,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         // Create player
         player = createObject(R.raw.bulldozer, createTexture(colOrange), false);
         player.setScale(0.001f, 0.001f, 0.001f);
-        player.setPos(0, -0.3f, 0);
-        player.addRotY(180);
-        speed = speedBase;
+
 
         createEnvironment();
 
@@ -270,6 +273,33 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
             Explosion explosion = new Explosion(this, renderPassObject3D, R.raw.cube, txExplosion);
             explosions.add(explosion);
         }
+
+        resetGame();
+    }
+
+    private void resetGame() {
+        player.setPos(0, -0.3f, 0);
+        player.setRotation(0, 180, 0);
+        speed = speedBase;
+
+        for (int i = 0; i < opponents.size(); i++) {
+            Object3D opponent = opponents.get(i);
+            opponent.setPos(i * farLength + halfFarLength / 2, 0.2f, 0);
+        }
+
+        for (int i = 0; i < bots.size(); i++) {
+            Object3D bot = bots.get(i);
+            bot.setVisible(false);
+        }
+
+        for (int i = 0; i < road.size(); i++) {
+            Object3D ground = road.get(i);
+            ground.setPos(roadSegmentLength * i - halfFarLength, roadPosY, roadSegmentLength / 2 - deltaZ);
+        }
+        sideRoadDown.setPos(sideRoadX, -0.5f, roadSegmentLength * scaleSideRoad + roadSegmentLength / 2 - deltaZ);
+        sideRoadUp.setPos(sideRoadX, -0.5f, -roadSegmentLength / 2 - deltaZ);
+
+        goBridge.setPosition(0, 0, -deltaZ);
     }
 
     private void createEnvironment() {
@@ -277,36 +307,29 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         road = new ArrayList<>();
         for (int i = 0; i < roadSegments; i++) {
             Object3D ground = createObject(R.raw.plane, txRoad, false);
-            ground.setPos(roadSegmentLength * i - halfFarLength, -0.5f, roadSegmentLength / 2);
-//            ground.setScale(roadSegmentLength , 0, roadSegmentLength);
+//            ground.setPos(roadSegmentLength * i - halfFarLength, roadPosY, roadSegmentLength / 2);
             road.add(ground);
         }
 
-        int lighterHeight = 10;
+        sideRoadDown = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
+        sideRoadUp = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
+        sideRoadDown.setScale(0.75f, 1, scaleSideRoad);
+        sideRoadUp.setScale(0.75f, 1, scaleSideRoad);
+
         lighters = new ArrayList<>();
         for (int i = 0; i < lightSegments; i++) {
             float x = lightSegmentLength * i - halfFarLength;
             Object3D lighter1 = createObject(R.raw.cube, txLtGray, false);
-            lighter1.setPos(x, lighterHeight / 2 - 0.5f, -roadSegmentLength);
+            lighter1.setPos(x, lighterHeight / 2 - 0.5f, -roadSegmentLength - deltaZ);
             lighter1.setScale(0.25f, lighterHeight, 0.25f);
 
             Object3D lighter2 = createObject(R.raw.cube, txLtGray, false);
-            lighter2.setPos(x, lighterHeight / 2 - 0.5f, roadSegmentLength);
+            lighter2.setPos(x, lighterHeight / 2 - 0.5f, roadSegmentLength - deltaZ);
             lighter2.setScale(0.25f, lighterHeight, 0.25f);
 
             lighters.add(lighter1);
             lighters.add(lighter2);
         }
-
-        int scale = 5;
-        float sideRoadX = (farLength + lightSegmentLength - scale) / 2;
-        sideRoadDown = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
-        sideRoadDown.setPos(sideRoadX, -0.5f, roadSegmentLength * scale + roadSegmentLength / 2);
-        sideRoadDown.setScale(0.75f, 1, scale);
-
-        sideRoadUp = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
-        sideRoadUp.setPos(sideRoadX, -0.5f, -roadSegmentLength / 2);
-        sideRoadUp.setScale(0.75f, 1, scale);
 
         ArrayList<Object3D> bridge = new ArrayList<>();
         Object3D bridge1 = createObject(R.raw.cube, txLtGray, false);
@@ -323,28 +346,11 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         bridge3.setScale(10, 1, 100);
         bridge.add(bridge3);
 
-//        Object3D plane = createObject(R.raw.plane, createTexture(Color.RED), false);
-//        plane.setPos(-10, -0.5f, -10);
-//        plane.setScale(5, 5, 5);
-//        bridge.add(plane);
-
         goBridge = new GameObject();
         goBridge.setObjects(bridge);
-        goBridge.setPosition(0, 0, 0);
     }
 
-    private void updateBots(float x) {
-        for (int i = 0; i < bots.size(); i++) {
-            Object3D object3D = bots.get(i);
-            if (!object3D.isVisible()) {
-                float dx = random.nextInt(roadSegmentLength / 4) + x;
-                float dz = random.nextInt(roadSegmentLength) - roadSegmentLength / 2;
-                object3D.setPos(dx, 0.2f, dz);
-                object3D.setVisible(true);
-                break;
-            }
-        }
-    }
+
 
     private Texture createTexture(int colorBg) {
         int tx = 1;
@@ -450,58 +456,147 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     }
 
     private void update(float delta, OpenGLCamera camera) {
-        float playerRotX = player.getRotX();
-        float playerRotY = player.getRotY();
-        float playerRotZ = player.getRotZ();
 
-        float playerPosX = player.getPosX();
-        float playerPosY = player.getPosY();
-        float playerPosZ = player.getPosZ();
+        if (player.getPosX() < finishDistance) {
+            float playerRotX = player.getRotX();
+            float playerRotY = player.getRotY();
+            float playerRotZ = player.getRotZ();
 
-        distance = Math.round(playerPosX);
-        // Update sprite
-        if (mSprite != null) {
-            float newRot = mSprite.getRotation() + (speed * 10);
-            mSprite.setRotation(newRot);
+            float playerPosX = player.getPosX();
+            float playerPosY = player.getPosY();
+            float playerPosZ = player.getPosZ();
+
+
+            float camRotX, camRotY, camRotZ, camPosX, camPosY, camPosZ;
+
+            distance = Math.round(playerPosX);
+            // Update sprite
+            if (mSprite != null) {
+                float newRot = mSprite.getRotation() + (speed * 10);
+                mSprite.setRotation(newRot);
+            }
+
+            // Update environment
+            updateEnvironment(playerPosX);
+
+            // Check collisions
+            for (int i = 0; i < bots.size(); i++) {
+                Object3D object3D = bots.get(i);
+                if (object3D.isVisible()) {
+                    float ox = object3D.getPosX();
+                    float oy = object3D.getPosY();
+                    float oz = object3D.getPosZ();
+                    float distance = getDistance(ox, oz, playerPosX, playerPosZ);
+
+                    if (distance < 1.7f) {
+                        object3D.setVisible(false);
+                        explosion(ox, oy, oz);
+                        shake = cameraShakeDistance;
+                        if (!cheatNoDeccelerate) speed = speedBase;
+                    }
+
+                    if (ox < playerPosX - halfFarLength) {
+                        object3D.setVisible(false);
+                        object3D.setPos(ox + farLength * 2, oy, oz);
+                    }
+
+                    if (oz > 0) {
+                        ox += speedBots;
+                        object3D.setRotation(0, 0, 0);
+                    } else {
+                        ox -= speedBots;
+                        object3D.setRotation(0, 180, 0);
+                    }
+                    object3D.setPos(ox, oy, oz);
+                }
+            }
+
+            updateOpponents(playerPosX, playerPosZ);
+
+            // Update UI
+            handler.post(runnable);
+
+            // Update explosions
+            if (!explosions.isEmpty()) {
+                for (int i = 0; i < explosions.size(); i++) {
+                    explosions.get(i).update();
+                }
+            }
+
+            // Move player
+            double playerAngle = Math.toRadians(360 - playerRotY);
+            if (speed < speedLimit) speed += velocity;
+            float z = (float) (-speed * Math.sin(playerAngle));
+            if (Math.abs(playerPosZ + z) > roadLimit) {
+                z = 0;
+                currentDirection = DIRECTION.STRAIGHT;
+            }
+            float x = (float) (-speed * Math.cos(playerAngle));
+
+            player.setPos(playerPosX + x, playerPosY, playerPosZ + z);
+
+            // Player rotation
+            float k = 0;
+
+            switch (currentDirection) {
+                case LEFT:
+                    if (playerRotY < 225) k = 200;
+                    break;
+                case RIGHT:
+                    if (playerRotY > 135) k = -200;
+                    break;
+                case STRAIGHT:
+                    if (playerRotY < 177) {
+                        k = 200;
+                    } else if (playerRotY > 183) {
+                        k = -200;
+                    } else {
+                        k = 0;
+                        player.setRotation(playerRotX, 180, playerRotZ);
+                    }
+            }
+
+            player.addRotY(k * delta);
+
+            // Camera
+            camRotX = camRotXgame;
+            camRotY = camRotYgame;
+            camRotZ = camRotZgame;
+
+            camPosX = camXgame;
+            camPosY = camYgame;
+            camPosZ = camZgame;
+            // Update camera
+            float alpha = (float) Math.sin(playerPosX * 0.1f);
+            if (shake > 0) shake -= 2 * delta;
+            float cx = playerPosX + camPosX + shake + alpha;
+            float cy = playerPosY + camPosY + shake;
+            float cz = playerPosZ + camPosZ + shake + alpha;
+
+            camera.setPosition(cx, cy, cz);
+            camera.setRotation(alpha - camRotX, alpha * 2 + camRotY, camRotZ);
+        } else {
+            resetGame();
         }
 
-        // Update environment
-        updateEnvironment(playerPosX);
+    }
 
-        // Check collisions
+    private void updateBots(float x) {
+        float dz1 = roadSegmentLength / 2 - deltaZ * 2;
         for (int i = 0; i < bots.size(); i++) {
             Object3D object3D = bots.get(i);
-            if (object3D.isVisible()) {
-                float ox = object3D.getPosX();
-                float oy = object3D.getPosY();
-                float oz = object3D.getPosZ();
-                float distance = getDistance(ox, oz, playerPosX, playerPosZ);
-                if (distance < 1.7f) {
-                    object3D.setVisible(false);
-                    explosion(ox, oy, oz);
-                    shake = cameraShakeDistance;
-                    speed = speedBase;
-                } else {
-//                    object3D.addRotX(50 * delta);
-
-                }
-
-                if (ox < playerPosX - halfFarLength) {
-                    object3D.setVisible(false);
-                    object3D.setPos(ox + farLength * 2, oy, oz);
-                }
-
-                if (oz > 0) {
-                    ox += speedBots;
-                    object3D.setRotation(0, 180, 0);
-                } else {
-                    ox -= speedBots;
-                    object3D.setRotation(0, 0, 0);
-                }
-                object3D.setPos(ox, oy, oz);
+            if (!object3D.isVisible()) {
+                float dx = random.nextInt(roadSegmentLength / 4) + x;
+                float dz = random.nextFloat() * dz1 + deltaZ;
+                if (random.nextBoolean()) dz *= -1;
+                object3D.setPos(dx, -0.4f, dz);
+                object3D.setVisible(true);
+                break;
             }
         }
+    }
 
+    private void updateOpponents(float playerPosX, float playerPosZ) {
         // Update opponents
         for (int i = 0; i < opponents.size(); i++) {
             Object3D object3D = opponents.get(i);
@@ -523,13 +618,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                     place = totalPlayers - i;
                 }
 
-//            if (oz > 0) {
-//                ox += speedOpponents;
-//            } else {
-//
-//            }
-
-
                 for (int j = 0; j < bots.size(); j++) {
                     Object3D bot = bots.get(j);
                     if (bot.isVisible()) {
@@ -544,93 +632,45 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                     }
                 }
 
-                oz = (float) Math.sin(ox * 0.1f) * 3.5f;
+                float sinAlpha = (float) Math.sin(ox * 0.1f);
+                oz = sinAlpha * roadSegmentLength / 2;
+
+                float alpha = (float) Math.toDegrees(Math.asin(sinAlpha));
+
+                float rox = object3D.getRotX();
+                float roy = object3D.getRotY();
+                float roz = object3D.getRotZ();
+
+//                object3D.addRotY((float) (90 - Math.toDegrees(Math.asin(sinAlpha))));
+                object3D.setRotation(rox, alpha / 2 - 180, roz);
+
+
             }
             ox += speedOpponents;
             object3D.setPos(ox, oy, oz);
         }
-
-        // Update UI
-        handler.post(runnable);
-
-        // Update explosions
-        if (!explosions.isEmpty()) {
-            for (int i = 0; i < explosions.size(); i++) {
-                explosions.get(i).update();
-            }
-        }
-
-        // Update camera
-        float alpha = (float) Math.sin(playerPosX * 0.1f);
-        if (shake > 0) shake -= 2 * delta;
-        float cx = playerPosX + camX + shake + alpha;
-        float cy = playerPosY + camY + shake;
-        float cz = playerPosZ + camZ + shake + alpha;
-
-        camera.setPosition(cx, cy, cz);
-        camera.setRotation(alpha - 40, alpha * 2, 0);
-
-
-        // Move player
-        double playerAngle = Math.toRadians(360 - playerRotY);
-        if (speed < speedLimit) speed += 0.0002f;
-        float z = (float) (-speed * Math.sin(playerAngle));
-        if (Math.abs(playerPosZ + z) > roadLimit) {
-            z = 0;
-            currentDirection = DIRECTION.STRAIGHT;
-        }
-        float x = (float) (-speed * Math.cos(playerAngle));
-
-        player.setPos(playerPosX + x, playerPosY, playerPosZ + z);
-
-        // Player rotation
-        float k = 0;
-
-//        if (playerPosZ > roadLimit && currentDirection == DIRECTION.RIGHT) {
-//            currentDirection = DIRECTION.STRAIGHT;
-//        }
-//        if (playerPosZ < -roadLimit && currentDirection == DIRECTION.LEFT) {
-//            currentDirection = DIRECTION.STRAIGHT;
-//        }
-        switch (currentDirection) {
-            case LEFT:
-                if (playerRotY < 225) k = 200;
-                break;
-            case RIGHT:
-                if (playerRotY > 135) k = -200;
-                break;
-            case STRAIGHT:
-                if (playerRotY < 177) {
-                    k = 200;
-                } else if (playerRotY > 183) {
-                    k = -200;
-                } else {
-                    k = 0;
-                    player.setRotation(playerRotX, 180, playerRotZ);
-                }
-        }
-
-        player.addRotY(k * delta);
     }
 
     private void updateEnvironment(float playerPosX) {
 
         float farFromPlayer = playerPosX - farLength;
+        float dx1 = playerPosX - halfFarLength;
+        float dx2 = playerPosX + halfFarLength;
 
         for (int i = 0; i < road.size(); i++) {
             Object3D object3D = road.get(i);
 
             float x = object3D.getPosX();
-            float y = object3D.getPosY();
+            float y = roadPosY;
             float z = object3D.getPosZ();
 
-            if (x < playerPosX - halfFarLength) {
+            if (x < dx1) {
                 object3D.setPos(x + farLength, y, z);
                 updateBots(object3D.getPosX());
                 break;
             }
 
-            if (x > playerPosX + halfFarLength) {
+            if (x > dx2) {
                 object3D.setPos(x - farLength, y, z);
                 updateBots(object3D.getPosX());
                 break;
@@ -642,22 +682,19 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
             float y = object3D.getPosY();
             float z = object3D.getPosZ();
 
-            if (x < playerPosX - halfFarLength) {
+            if (x < dx1) {
                 object3D.setPos(x + farLength, y, z);
             }
 
-//            if (x > playerPosX + halfFarLength) {
-//                object3D.setPos(x - farLength * lightMult / 2, y, z);
-//            }
-
-
+            if (x > dx2) {
+                object3D.setPos(x - farLength, y, z);
+            }
         }
 
         float bridgeX = goBridge.getX();
         if (bridgeX < farFromPlayer) {
             goBridge.setX(bridgeX + farLength * 2);
         }
-
 
         float sideRoadUpPosY = sideRoadUp.getPosY();
         float sideRoadUpPosZ = sideRoadUp.getPosZ();
