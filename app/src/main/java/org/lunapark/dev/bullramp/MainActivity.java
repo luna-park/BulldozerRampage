@@ -36,7 +36,12 @@ import fr.arnaudguyon.smartgl.touch.TouchHelperEvent;
 
 public class MainActivity extends Activity implements SmartGLViewController, View.OnTouchListener {
 
-    private int divider = 1;
+    private int divider = 1; // pixel size
+    private boolean joyVisible;
+    private float joyDelta;
+    private int joySize, halfJoySize;
+    private Sprite joyBaseSprite, joyKnobSprite;
+    private float joyX, joyY;
 
     // Road params
     private int roadSegments = 10, roadSegmentLength = 10;
@@ -55,7 +60,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private float sideRoadX = (farLength + lightSegmentLength - scaleSideRoad) / 2;
 
     // Player and bots params
-    private float speedBase = 0.3f, speed, speedLimit = speedBase * 3;
+    private float speedBase = 0.3f, speed, speedLimit = speedBase * 2;
     private float velocity = 0.0005f; // 0.0002f;
     private float speedBots = speedBase / 4;
     private float speedOpponents = speedBase * 1.2f;
@@ -243,6 +248,26 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         spriteBg.setTexture(txBackground);
         bgSprite.addSprite(spriteBg);
 
+        // Create joystick
+        Texture joyTexture = new Texture(this, R.drawable.col_circle);
+        textures.add(joyTexture);
+
+        joySize = screenH / 3;
+        halfJoySize = joySize / 2;
+
+        joyBaseSprite = new Sprite(joySize, joySize);
+        joyBaseSprite.setPivot(0.5f, 0.5f);
+        joyBaseSprite.setTexture(joyTexture);
+        joyBaseSprite.setVisible(joyVisible);
+
+        joyKnobSprite = new Sprite(screenH / 6, screenH / 6);
+        joyKnobSprite.setPivot(0.5f, 0.5f);
+        joyKnobSprite.setTexture(joyTexture);
+        joyKnobSprite.setVisible(joyVisible);
+
+        renderPassSprite.addSprite(joyBaseSprite);
+        renderPassSprite.addSprite(joyKnobSprite);
+
         // Create 3D objects
         bots = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
@@ -392,7 +417,6 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         goBridge = new GameObject();
         goBridge.setObjects(bridge);
     }
-
 
 
     private Texture createTexture(int colorBg) {
@@ -579,14 +603,13 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
             player.setPos(playerPosX + x, playerPosY, playerPosZ + z);
 
             // Player rotation
+
             float k = 0;
 
             switch (currentDirection) {
-                case LEFT:
-                    if (playerRotY < 225) k = 200;
-                    break;
-                case RIGHT:
-                    if (playerRotY > 135) k = -200;
+                case ANALOG:
+                    if (playerRotY > 135 && playerRotY < 225)
+                        k = -joyDelta * 4;
                     break;
                 case STRAIGHT:
                     if (playerRotY < 177) {
@@ -598,6 +621,25 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
                         player.setRotation(playerRotX, 180, playerRotZ);
                     }
             }
+
+
+//            switch (currentDirection) {
+//                case LEFT:
+//                    if (playerRotY < 225) k = 200;
+//                    break;
+//                case RIGHT:
+//                    if (playerRotY > 135) k = -200;
+//                    break;
+//                case STRAIGHT:
+//                    if (playerRotY < 177) {
+//                        k = 200;
+//                    } else if (playerRotY > 183) {
+//                        k = -200;
+//                    } else {
+//                        k = 0;
+//                        player.setRotation(playerRotX, 180, playerRotZ);
+//                    }
+//            }
 
             player.addRotY(k * delta);
 
@@ -776,8 +818,36 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
     @Override
     public void onTouchEvent(SmartGLView smartGLView, TouchHelperEvent touchHelperEvent) {
+        TouchHelperEvent.TouchEventType type = touchHelperEvent.getType();
+        switch (type) {
+            case SINGLETOUCH:
+                joyVisible = true;
+                joyX = touchHelperEvent.getX(0);
+                joyY = touchHelperEvent.getY(0);
+                break;
+            case SINGLEMOVE:
+                float y = touchHelperEvent.getY(0) - joyY;
+                System.out.println(y);
+                if (Math.abs(y) < halfJoySize) joyDelta = y;
+                currentDirection = DIRECTION.ANALOG;
+                break;
+            case SINGLEUNTOUCH:
+                joyVisible = false;
+                joyDelta = 0;
+                currentDirection = DIRECTION.STRAIGHT;
+                break;
+        }
+        updateJoystick();
     }
 
-    private enum DIRECTION {RIGHT, LEFT, STRAIGHT}
+    private void updateJoystick() {
+        joyBaseSprite.setVisible(joyVisible);
+        joyKnobSprite.setVisible(joyVisible);
+
+        joyBaseSprite.setPos(joyX, joyY);
+        joyKnobSprite.setPos(joyX, joyY + joyDelta);
+    }
+
+    private enum DIRECTION {RIGHT, LEFT, STRAIGHT, ANALOG}
 
 }
