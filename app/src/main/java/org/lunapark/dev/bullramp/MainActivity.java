@@ -62,7 +62,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private int numOpponents = 7;
     private int place = numOpponents + 1;
     private int totalPlayers = place;
-    private int distance = 0, finishDistance = 1000;
+    private int distance = 0, finishDistance = (numOpponents + 1) * 1000;
     private boolean cheatNoDeccelerate = true;
 
     private SmartGLView mSmartGLView;
@@ -77,7 +77,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
     private RenderPassObject3D renderPassObject3D;
     private RenderPassSprite renderPassSprite;
     private ArrayList<Texture> textures;
-    private ArrayList<Object3D> bots, opponents, road, lighters;
+    private ArrayList<Object3D> bots, opponents, road, lighters, uptown, downtown;
     private ArrayList<Explosion> explosions;
     private float cameraShakeDistance = 2.0f, shake;
     private float camXgame = 8f, camYgame = 10f, camZgame = 15f;
@@ -245,7 +245,7 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
 
         // Create 3D objects
         bots = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 7; i++) {
             Object3D bot = createObject(R.raw.truck, txHoloBright, true);
             bot.setScale(0.001f, 0.001f, 0.001f);
             bot.setVisible(false);
@@ -345,6 +345,49 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         bridge3.setPos(0, 4.0f, 0);
         bridge3.setScale(10, 1, 100);
         bridge.add(bridge3);
+
+//        Object3D uptown1 = createObject(R.raw.cube, txLtGray, false);
+//        uptown1.setPos(20, 1.5f, (10 + roadSegmentLength));
+//        uptown1.setScale(10, 4, 10);
+//        bridge.add(uptown1);
+//
+//        Object3D uptown2 = createObject(R.raw.cube, txLtGray, false);
+//        uptown2.setPos(40, 1.5f, (10 + roadSegmentLength));
+//        uptown2.setScale(10, 4, 10);
+//        bridge.add(uptown2);
+
+        int houseCount = 3;
+
+        float houseStep = halfFarLength / houseCount;
+
+        uptown = new ArrayList<>();
+        downtown = new ArrayList<>();
+
+        for (int i = 0; i < houseCount; i++) {
+            Object3D uptown1 = createObject(R.raw.cube, txLtGray, false);
+            uptown1.setPos(20 + i * houseStep, 1.5f, -(10 + roadSegmentLength));
+            uptown1.setScale(10, 4, 10);
+            Object3D uptown2 = createObject(R.raw.cube, txLtGray, false);
+            uptown2.setPos(-20 - i * houseStep, 1.5f, -(10 + roadSegmentLength));
+            uptown2.setScale(10, 4, 10);
+
+            bridge.add(uptown1);
+            bridge.add(uptown2);
+            uptown.add(uptown1);
+            uptown.add(uptown2);
+
+            Object3D downtown1 = createObject(R.raw.cube, txLtGray, false);
+            downtown1.setPos(20 + i * houseStep, 1.5f, 10 + roadSegmentLength);
+            downtown1.setScale(10, 4, 10);
+            Object3D downtown2 = createObject(R.raw.cube, txLtGray, false);
+            downtown2.setPos(-20 - i * houseStep, 1.5f, 10 + roadSegmentLength);
+            downtown2.setScale(10, 4, 10);
+
+            bridge.add(downtown1);
+            bridge.add(downtown2);
+            downtown.add(downtown1);
+            downtown.add(downtown2);
+        }
 
         goBridge = new GameObject();
         goBridge.setObjects(bridge);
@@ -694,7 +737,17 @@ public class MainActivity extends Activity implements SmartGLViewController, Vie
         float bridgeX = goBridge.getX();
         if (bridgeX < farFromPlayer) {
             goBridge.setX(bridgeX + farLength * 2);
+            for (int i = 0; i < uptown.size(); i++) {
+                Object3D object3D = uptown.get(i);
+                object3D.setVisible(random.nextBoolean());
+            }
+
+            for (int i = 0; i < downtown.size(); i++) {
+                Object3D object3D = downtown.get(i);
+                object3D.setVisible(random.nextBoolean());
+            }
         }
+
 
         float sideRoadUpPosY = sideRoadUp.getPosY();
         float sideRoadUpPosZ = sideRoadUp.getPosZ();
