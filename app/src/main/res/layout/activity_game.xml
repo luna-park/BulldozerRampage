@@ -12,26 +12,15 @@
         android:layout_height="match_parent" />
 
     <TextView
-        android:id="@+id/tvPlace"
+        android:id="@+id/tvResult"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_alignParentTop="true"
-        android:text="/"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:gravity="center_horizontal"
+        android:text="@string/txt_result"
         android:textColor="@android:color/white"
         android:textSize="36sp"
         android:textStyle="normal|bold" />
-
-    <TextView
-        android:id="@+id/tvDistance"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/tvPlace"
-        android:gravity="right"
-        android:text="@string/distance"
-        android:textColor="@android:color/white" />
 
 </RelativeLayout>

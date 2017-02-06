@@ -58,6 +58,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private float sideRoadX = (farLength + lightSegmentLength - scaleSideRoad) / 2;
 
     // Player and bots params
+    private float playerPosX, playerPosY, playerPosZ;
     private float speedBase = 0.3f, speed, speedLimit = speedBase * 2;
     private float velocity = 0.0005f; // 0.0002f;
     private float speedBots = speedBase / 4;
@@ -65,17 +66,22 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private int numOpponents = 7;
     private int place = numOpponents + 1;
     private int totalPlayers = place;
-    private int distance = 0, finishDistance = (numOpponents + 1) * 1000;
-    private boolean cheatNoDeccelerate = false;
+    private int finishDistance = (numOpponents + 1) * 500; // 500
+
+    private boolean cheatNoDeccelerate = false, sfxFinishPlay = true;
+
+    private float trackLength, trackX, trackY, trackMax; // for UI
+    private ArrayList<Sprite> sprites;
+
+    private boolean gameover = false;
 
     private SmartGLView mSmartGLView;
 
     private Handler handler;
     private Runnable runnable;
-    private TextView tvPlace, tvDistance;
+    private TextView tvResult;
 
-    private Texture mSpriteTexture;
-    private Sprite mSprite;
+    private Sprite sprPlayer, sprTrack;
     private Object3D player, sideRoadUp, sideRoadDown;
     private RenderPassObject3D renderPassObject3D;
     private RenderPassSprite renderPassSprite;
@@ -88,7 +94,8 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
 
     private SoundPool soundPool;
-    private int sfxExplosion, sfxHit;
+    private int sfxExplosion, sfxHit, sfxFinished;
+    private long sfxHitTime;
     private GameObject goBridge;
     private int screenW, screenH;
     // Colors
@@ -129,12 +136,24 @@ public class GameActivity extends Activity implements SmartGLViewController {
         mSmartGLView.setDefaultRenderer(this);
         mSmartGLView.setController(this);
 
-        tvPlace = (TextView) findViewById(R.id.tvPlace);
-        tvPlace.setText(place + "/" + totalPlayers);
-        tvPlace.setLayerType(View.LAYER_TYPE_SOFTWARE, tvPlace.getPaint());
+        tvResult = (TextView) findViewById(R.id.tvResult);
+        tvResult.setVisibility(View.INVISIBLE);
+        tvResult.setLayerType(View.LAYER_TYPE_SOFTWARE, tvResult.getPaint());
 
-        tvDistance = (TextView) findViewById(R.id.tvDistance);
-        tvDistance.setLayerType(View.LAYER_TYPE_SOFTWARE, tvDistance.getPaint());
+        // Prepare update UI
+        handler = new Handler();
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (gameover) {
+                    tvResult.setVisibility(View.VISIBLE);
+                    String result = place + "/" + totalPlayers;
+                    tvResult.setText(getString(R.string.txt_result) + result);
+
+                }
+
+            }
+        };
 
         // Double pixels
         SurfaceHolder surfaceHolder = mSmartGLView.getHolder();
@@ -156,17 +175,9 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         sfxExplosion = soundPool.load(this, R.raw.explosion, 1);
         sfxHit = soundPool.load(this, R.raw.hit, 1);
+        sfxFinished = soundPool.load(this, R.raw.finishrace, 1);
 
-        // Prepare update UI
-        handler = new Handler();
-        runnable = new Runnable() {
-            @Override
-            public void run() {
-                tvPlace.setText(place + "/" + totalPlayers);
-                tvDistance.setText(getString(R.string.distance) + distance);
-                tvPlace.invalidate();
-            }
-        };
+
     }
 
     @Override
@@ -207,16 +218,21 @@ public class GameActivity extends Activity implements SmartGLViewController {
         txDkGray = createTexture(colDkGray);
         txRed = createTexture(colRed);
         txLtGray = createTexture(colLtGray);
+        Texture txPlayer = createTexture(colOrange);
 
         // Create sprites
-        mSpriteTexture = new Texture(this, R.drawable.doubleaxes);
-        textures.add(mSpriteTexture);
+        trackLength = screenW * 0.8f;
+        trackX = screenW * 0.1f;
+        trackY = 8;
+        trackMax = trackX + trackLength;
+        int sprH = screenH / 48;
+        sprTrack = new Sprite(Math.round(trackLength), sprH);
+        sprTrack.setPivot(0, 0.5f);
+        sprTrack.setTexture(txHoloBright);
+        sprTrack.setPos(trackX, trackY);
+        renderPassSprite.addSprite(sprTrack);
 
-        mSprite = new Sprite(120 / divider, 120 / divider); // 120 x 120 pixels
-        mSprite.setPivot(0.5f, 0.5f);  // set position / rotation axis to the middle of the sprite
-        mSprite.setPos(60 / divider, 60 / divider);
-        mSprite.setTexture(mSpriteTexture);
-        renderPassSprite.addSprite(mSprite);
+        sprites = new ArrayList<>();
 
         Texture txBackground = createTexture(Color.BLACK, Color.rgb(16, 16, 16), 256, 256);
         Sprite spriteBg = new Sprite(screenW, screenH);
@@ -224,8 +240,10 @@ public class GameActivity extends Activity implements SmartGLViewController {
         bgSprite.addSprite(spriteBg);
 
         // Create joystick
-        Texture joyTexture = new Texture(this, R.drawable.col_circle);
+        Texture joyTexture = new Texture(this, R.drawable.gamepad);
+        Texture knobTexture = new Texture(this, R.drawable.knob);
         textures.add(joyTexture);
+        textures.add(knobTexture);
 
         joySize = screenH / 3;
         halfJoySize = joySize / 2;
@@ -235,9 +253,9 @@ public class GameActivity extends Activity implements SmartGLViewController {
         joyBaseSprite.setTexture(joyTexture);
         joyBaseSprite.setVisible(joyVisible);
 
-        joyKnobSprite = new Sprite(screenH / 6, screenH / 6);
+        joyKnobSprite = new Sprite(joySize / 2, joySize / 2);
         joyKnobSprite.setPivot(0.5f, 0.5f);
-        joyKnobSprite.setTexture(joyTexture);
+        joyKnobSprite.setTexture(knobTexture);
         joyKnobSprite.setVisible(joyVisible);
 
         renderPassSprite.addSprite(joyBaseSprite);
@@ -258,12 +276,21 @@ public class GameActivity extends Activity implements SmartGLViewController {
             opponent.setScale(2, 1, 1);
             opponent.setVisible(true);
             opponents.add(opponent);
+
+            Sprite sprite = new Sprite(sprH, sprH);
+            sprite.setPivot(0.5f, 0.5f);
+            sprite.setTexture(txRed);
+            renderPassSprite.addSprite(sprite);
+            sprites.add(sprite);
         }
 
         // Create player
-        player = createObject(R.raw.bulldozer, createTexture(colOrange), false);
+        player = createObject(R.raw.bulldozer, txPlayer, false);
         player.setScale(0.001f, 0.001f, 0.001f);
-
+        sprPlayer = new Sprite(sprH, sprH);
+        sprPlayer.setPivot(0.5f, 0.5f);
+        sprPlayer.setTexture(txPlayer);
+        renderPassSprite.addSprite(sprPlayer);
 
         createEnvironment();
 
@@ -490,7 +517,8 @@ public class GameActivity extends Activity implements SmartGLViewController {
             if (!explosion.isVisible()) {
                 explosion.setPosition(x, y, z);
                 explosion.setVisible(true);
-                soundPool.play(sfxExplosion, 1, 1, 0, 0, 1);
+//                soundPool.play(sfxExplosion, 1, 1, 0, 0, 1);
+                playSound(sfxExplosion);
                 break;
             }
         }
@@ -503,22 +531,14 @@ public class GameActivity extends Activity implements SmartGLViewController {
             float playerRotY = player.getRotY();
             float playerRotZ = player.getRotZ();
 
-            float playerPosX = player.getPosX();
-            float playerPosY = player.getPosY();
-            float playerPosZ = player.getPosZ();
-
+            playerPosX = player.getPosX();
+            playerPosY = player.getPosY();
+            playerPosZ = player.getPosZ();
 
             float camRotX, camRotY, camRotZ, camPosX, camPosY, camPosZ;
 
-            distance = Math.round(playerPosX);
-            // Update sprite
-            if (mSprite != null) {
-                float newRot = mSprite.getRotation() + (speed * 10);
-                mSprite.setRotation(newRot);
-            }
-
             // Update environment
-            updateEnvironment(playerPosX);
+            updateEnvironment();
 
             // Check collisions
             for (int i = 0; i < bots.size(); i++) {
@@ -529,7 +549,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
                     float oz = object3D.getPosZ();
                     float distance = getDistance(ox, oz, playerPosX, playerPosZ);
 
-                    if (distance < 1.7f) {
+                    if (distance < 1.5f) {
                         object3D.setVisible(false);
                         explosion(ox, oy, oz);
                         shake = cameraShakeDistance;
@@ -552,17 +572,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
                 }
             }
 
-            updateOpponents(playerPosX, playerPosZ);
-
-            // Update UI
-            handler.post(runnable);
-
-            // Update explosions
-            if (!explosions.isEmpty()) {
-                for (int i = 0; i < explosions.size(); i++) {
-                    explosions.get(i).update();
-                }
-            }
+            updateOpponents();
 
             // Move player
             double playerAngle = Math.toRadians(360 - playerRotY);
@@ -608,7 +618,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
             camPosZ = camZgame;
             // Update camera
             float alpha = (float) Math.sin(playerPosX * 0.1f);
-            if (shake > 0) shake -= 2 * delta;
+            if (shake > 0) shake -= 5 * delta;
             float cx = playerPosX + camPosX + shake + alpha;
             float cy = playerPosY + camPosY + shake;
             float cz = playerPosZ + camPosZ + shake + alpha;
@@ -616,8 +626,88 @@ public class GameActivity extends Activity implements SmartGLViewController {
             camera.setPosition(cx, cy, cz);
             camera.setRotation(alpha - camRotX, alpha * 2 + camRotY, camRotZ);
         } else {
-            resetGame();
+//            resetGame();
+            if (sfxFinishPlay) {
+                playSound(sfxFinished);
+                sfxFinishPlay = false;
+            }
+            speed = 0;
+            gameover = true;
+            float dy = 0.05f;
+            flyaway(dy);
+            float camX = camera.getPosX();
+
+            player.addRotY(dy * 100);
+
+            if (camX > playerPosX) {
+                camX -= dy;
+                float camY = camera.getPosY();
+                float camZ = camera.getPosZ();
+                camera.setPosition(camX, camY - dy / 2, camZ - dy / 2);
+            }
         }
+
+        // Update explosions
+        if (!explosions.isEmpty()) {
+            for (int i = 0; i < explosions.size(); i++) {
+                explosions.get(i).update();
+            }
+        }
+        // Update UI
+        handler.post(runnable);
+        updateSprites();
+    }
+
+    private void updateSprites() {
+        float x;
+        float y;
+        for (int i = 0; i < opponents.size(); i++) {
+            x = getUIX(opponents.get(i).getPosX());
+            y = trackY;
+            if (x < trackMax) sprites.get(i).setPos(x, y);
+        }
+
+        x = getUIX(playerPosX);
+        y = trackY;
+        sprPlayer.setPos(x, y);
+    }
+
+    private float getUIX(float x) {
+        return trackX + x / finishDistance * trackLength;
+    }
+
+    private void flyaway(float dy) {
+        flyaway(bots, dy);
+        flyaway(opponents, dy);
+        flyaway(road, -dy);
+        flyaway(lighters, dy);
+        flyaway(downtown, dy);
+        flyaway(uptown, -dy);
+    }
+
+    private void flyaway(ArrayList<Object3D> object3Ds, float dy) {
+        for (int i = 0; i < object3Ds.size(); i++) {
+            Object3D object3D = object3Ds.get(i);
+            float ox = object3D.getPosX();
+            float oy = object3D.getPosY();
+            float oz = object3D.getPosZ();
+
+            object3D.setPos(ox, oy + dy, oz);
+        }
+        float bridgeY = goBridge.getY();
+        goBridge.setY(bridgeY + dy);
+
+        float sideUX = sideRoadUp.getPosX();
+        float sideUY = sideRoadUp.getPosY();
+        float sideUZ = sideRoadUp.getPosZ();
+
+        sideRoadUp.setPos(sideUX, sideUY + dy, sideUZ);
+
+        sideUX = sideRoadDown.getPosX();
+        sideUY = sideRoadDown.getPosY();
+        sideUZ = sideRoadDown.getPosZ();
+
+        sideRoadDown.setPos(sideUX, sideUY + dy, sideUZ);
 
     }
 
@@ -636,8 +726,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         }
     }
 
-    private void updateOpponents(float playerPosX, float playerPosZ) {
-        // Update opponents
+    private void updateOpponents() {
         for (int i = 0; i < opponents.size(); i++) {
             Object3D object3D = opponents.get(i);
             float ox = object3D.getPosX();
@@ -648,7 +737,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
             if ((ox > dx1) && (ox < dx2)) {
                 float distance = getDistance(ox, oz, playerPosX, playerPosZ);
                 if (distance < 1.7f) {
-                    soundPool.play(sfxHit, 0.5f, 0.5f, 1, 0, 1);
+                    playSound(sfxHit);
                     speed = speedBase;
                 }
 
@@ -678,7 +767,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
                 float alpha = (float) Math.toDegrees(Math.asin(sinAlpha));
 
                 float rox = object3D.getRotX();
-                float roy = object3D.getRotY();
                 float roz = object3D.getRotZ();
 
 //                object3D.addRotY((float) (90 - Math.toDegrees(Math.asin(sinAlpha))));
@@ -686,12 +774,27 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
 
             }
+
             ox += speedOpponents;
             object3D.setPos(ox, oy, oz);
         }
     }
 
-    private void updateEnvironment(float playerPosX) {
+    private void playSound(int id) {
+
+        if (id == sfxHit) {
+            long time = System.currentTimeMillis() - sfxHitTime;
+            if (time > 200) {
+                sfxHitTime = System.currentTimeMillis();
+                soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
+            }
+        } else {
+            soundPool.stop(id);
+            soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
+        }
+    }
+
+    private void updateEnvironment() {
 
         float farFromPlayer = playerPosX - farLength;
         float dx1 = playerPosX - halfFarLength;
@@ -774,22 +877,28 @@ public class GameActivity extends Activity implements SmartGLViewController {
     @Override
     public void onTouchEvent(SmartGLView smartGLView, TouchHelperEvent touchHelperEvent) {
         TouchHelperEvent.TouchEventType type = touchHelperEvent.getType();
-        switch (type) {
-            case SINGLETOUCH:
-                joyVisible = true;
-                joyX = touchHelperEvent.getX(0);
-                joyY = touchHelperEvent.getY(0);
-                break;
-            case SINGLEMOVE:
-                float y = touchHelperEvent.getY(0) - joyY;
-                if (Math.abs(y) < halfJoySize) joyDelta = y;
-                currentDirection = DIRECTION.ANALOG;
-                break;
-            case SINGLEUNTOUCH:
-                joyVisible = false;
-                joyDelta = 0;
-                currentDirection = DIRECTION.STRAIGHT;
-                break;
+        if (!gameover) {
+            switch (type) {
+                case SINGLETOUCH:
+                    joyVisible = true;
+                    joyX = touchHelperEvent.getX(0);
+                    joyY = touchHelperEvent.getY(0);
+                    break;
+                case SINGLEMOVE:
+                    float y = touchHelperEvent.getY(0) - joyY;
+                    if (Math.abs(y) < halfJoySize) joyDelta = y;
+                    currentDirection = DIRECTION.ANALOG;
+                    break;
+                case SINGLEUNTOUCH:
+                    joyVisible = false;
+                    joyDelta = 0;
+                    currentDirection = DIRECTION.STRAIGHT;
+                    break;
+            }
+
+        } else {
+            joyVisible = false;
+            if (type == TouchHelperEvent.TouchEventType.TAPPING) this.finish();
         }
         updateJoystick();
     }
