@@ -59,6 +59,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
     // Player and bots params
     private float playerPosX, playerPosY, playerPosZ;
+    private float joyCoefficient = 45; // Degrees of player's rotation
     private float speedBase = 0.3f, speed, speedLimit = speedBase * 2;
     private float velocity = 0.0005f; // 0.0002f;
     private float speedBots = speedBase / 4;
@@ -248,6 +249,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         joySize = screenH / 3;
         halfJoySize = joySize / 2;
 
+        joyCoefficient /= halfJoySize;
         joyBaseSprite = new Sprite(joySize, joySize);
         joyBaseSprite.setPivot(0.5f, 0.5f);
         joyBaseSprite.setTexture(joyTexture);
@@ -587,15 +589,16 @@ public class GameActivity extends Activity implements SmartGLViewController {
             player.setPos(playerPosX + x, playerPosY, playerPosZ + z);
 
             // Player rotation
-
-            float k = 0;
-
             switch (currentDirection) {
                 case ANALOG:
-                    if (playerRotY > 135 && playerRotY < 225)
-                        k = -joyDelta * 3;
+                    if (playerRotY > 134 && playerRotY < 226) {
+//                        k = -joyDelta * 3;
+                        float al = 180 - joyDelta * joyCoefficient;
+                        player.setRotation(playerRotX, al, playerRotZ);
+                    }
                     break;
                 case STRAIGHT:
+                    float k;
                     if (playerRotY < 177) {
                         k = 200;
                     } else if (playerRotY > 183) {
@@ -604,9 +607,9 @@ public class GameActivity extends Activity implements SmartGLViewController {
                         k = 0;
                         player.setRotation(playerRotX, 180, playerRotZ);
                     }
+                    player.addRotY(k * delta);
             }
 
-            player.addRotY(k * delta);
 
             // Camera
             camRotX = camRotXgame;
