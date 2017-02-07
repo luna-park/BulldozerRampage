@@ -1,6 +1,7 @@
 package org.lunapark.dev.bullramp;
 
 import android.app.Activity;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Point;
@@ -64,10 +65,10 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private float velocity = 0.0005f; // 0.0002f;
     private float speedBots = speedBase / 4;
     private float speedOpponents = speedBase * 1.2f;
-    private int numOpponents = 7;
-    private int place = numOpponents + 1;
-    private int totalPlayers = place;
-    private int finishDistance = (numOpponents + 1) * 500; // 500
+    private int level;// = 7;
+    private int place;// = level + 1;
+    private int totalPlayers;// = place;
+    private int finishDistance;// = (level + 1) * 400; // 500
 
     private boolean cheatNoDeccelerate = false, sfxFinishPlay = true;
 
@@ -119,6 +120,24 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private DIRECTION currentDirection = DIRECTION.STRAIGHT;
     private Random random;
 
+    //
+    private SharedPreferences preferences;
+    private String DATA_LEVEL = "level";
+
+    private void loadData() {
+
+        level = preferences.getInt(DATA_LEVEL, 1);
+        place = level + 1;
+        totalPlayers = place;
+        finishDistance = (level + 1) * 400; // 500
+    }
+
+    private void saveData() {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putInt(DATA_LEVEL, level);
+        editor.apply();
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -132,6 +151,8 @@ public class GameActivity extends Activity implements SmartGLViewController {
         layout.screenBrightness = 0.5f;
         getWindow().setAttributes(layout);
 
+        preferences = getPreferences(MODE_PRIVATE);
+        loadData();
         //
         mSmartGLView = (SmartGLView) findViewById(R.id.smartGLView);
         mSmartGLView.setDefaultRenderer(this);
@@ -273,7 +294,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         }
 
         opponents = new ArrayList<>();
-        for (int i = 0; i < numOpponents; i++) {
+        for (int i = 0; i < level; i++) {
             Object3D opponent = createObject(R.raw.cube, txRed, false);
             opponent.setScale(2, 1, 1);
             opponent.setVisible(true);
@@ -633,6 +654,10 @@ public class GameActivity extends Activity implements SmartGLViewController {
             if (sfxFinishPlay) {
                 playSound(sfxFinished);
                 sfxFinishPlay = false;
+                if (place == 1) {
+                    level++;
+                    saveData();
+                }
             }
             speed = 0;
             gameover = true;
