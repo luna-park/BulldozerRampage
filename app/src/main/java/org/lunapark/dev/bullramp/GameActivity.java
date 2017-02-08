@@ -5,8 +5,6 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Point;
-import android.media.AudioManager;
-import android.media.SoundPool;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.Display;
@@ -70,7 +68,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private int totalPlayers;// = place;
     private int finishDistance;// = (level + 1) * 400; // 500
 
-    private boolean cheatNoDeccelerate = false, sfxFinishPlay = true;
+    private boolean cheatNoDeccelerate = true, sfxFinishPlay = true;
 
     private float trackLength, trackX, trackY, trackMax; // for UI
     private ArrayList<Sprite> sprites;
@@ -95,8 +93,9 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private float camRotXgame = 40, camRotYgame = -1, camRotZgame = 0;
 
 
-    private SoundPool soundPool;
-    private int sfxExplosion, sfxHit, sfxFinished;
+    //    private SoundPool soundPool;
+    private int sfxExplosion = Assets.instance().sfxExplosion,
+            sfxHit = Assets.instance().sfxHit, sfxFinished = Assets.instance().sfxFinished;
     private long sfxHitTime;
     private GameObject goBridge;
     private int screenW, screenH;
@@ -170,7 +169,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
                 if (gameover) {
                     tvResult.setVisibility(View.VISIBLE);
                     String result = place + "/" + totalPlayers;
-                    tvResult.setText(getString(R.string.txt_result) + result);
+                    tvResult.setText(String.format(getResources().getString(R.string.txt_result), result));
 
                 }
 
@@ -185,21 +184,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
         screenW = size.x;
         screenH = size.y;
         surfaceHolder.setFixedSize(screenW / divider, screenH / divider);
-
-        // Prepare sound
-        soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 0);
-        soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
-            @Override
-            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
-
-            }
-        });
-
-        sfxExplosion = soundPool.load(this, R.raw.explosion, 1);
-        sfxHit = soundPool.load(this, R.raw.hit, 1);
-        sfxFinished = soundPool.load(this, R.raw.finishrace, 1);
-
-
     }
 
     @Override
@@ -814,11 +798,11 @@ public class GameActivity extends Activity implements SmartGLViewController {
             long time = System.currentTimeMillis() - sfxHitTime;
             if (time > 200) {
                 sfxHitTime = System.currentTimeMillis();
-                soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
+                Assets.instance().soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
             }
         } else {
-            soundPool.stop(id);
-            soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
+            Assets.instance().soundPool.stop(id);
+            Assets.instance().soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
         }
     }
 

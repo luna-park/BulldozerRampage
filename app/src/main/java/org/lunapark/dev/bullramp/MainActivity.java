@@ -16,6 +16,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
         Button btnQuit = (Button) findViewById(R.id.btnQuit);
         btnStart.setOnClickListener(this);
         btnQuit.setOnClickListener(this);
+
+        Assets.instance().load(this);
     }
 
     @Override
@@ -31,4 +33,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    @Override
+    protected void onStop() {
+        Assets.instance().dispose();
+        super.onDestroy();
+    }
 }
