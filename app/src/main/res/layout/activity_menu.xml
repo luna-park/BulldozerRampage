@@ -6,35 +6,47 @@
 
     <TextView
         android:id="@+id/tvTitle"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_horizontal"
+        android:text="@string/app_name"
+        android:textSize="12sp"
+        android:typeface="monospace" />
+
+    <Button
+        android:id="@+id/btnQuit"
+        style="?android:attr/borderlessButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:fontFamily="monospace"
+        android:text="@string/btn_quit"
+        android:textAllCaps="true" />
+
+    <Button
+        android:id="@+id/btnStart"
+        style="?android:attr/borderlessButtonStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_toLeftOf="@+id/btnStart"
-        android:layout_weight="1"
-        android:gravity="left|center_vertical"
-        android:text="@string/title"
+        android:fontFamily="monospace"
+        android:text="@string/btn_start"
+        android:textAllCaps="true" />
+
+    <TextView
+        android:id="@+id/tvLevel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/btnStart"
+        android:layout_alignBottom="@+id/btnStart"
+        android:layout_centerHorizontal="true"
+        android:text="TextView"
+        android:textAllCaps="true"
+        android:textSize="18sp"
         android:typeface="monospace" />
-
-    <Button
-        android:id="@+id/btnStart"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_centerVertical="true"
-        android:layout_weight="1"
-        android:text="@string/btn_start" />
-
-    <Button
-        android:id="@+id/btnQuit"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_below="@+id/btnStart"
-        android:text="@string/btn_quit" />
 
 </RelativeLayout>

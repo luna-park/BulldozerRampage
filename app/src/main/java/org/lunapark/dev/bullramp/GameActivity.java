@@ -1,7 +1,6 @@
 package org.lunapark.dev.bullramp;
 
 import android.app.Activity;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Point;
@@ -33,13 +32,13 @@ import fr.arnaudguyon.smartgl.touch.TouchHelperEvent;
 
 public class GameActivity extends Activity implements SmartGLViewController {
 
+    private DIRECTION currentDirection = DIRECTION.STRAIGHT;
     private int divider = 1; // pixel size
     private boolean joyVisible;
     private float joyDelta;
     private int joySize, halfJoySize;
     private Sprite joyBaseSprite, joyKnobSprite;
     private float joyX, joyY;
-
     // Road params
     private int roadSegments = 10, roadSegmentLength = 10;
     private float roadLimit = roadSegmentLength / 2;
@@ -47,15 +46,12 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private float halfFarLength = farLength / 2;
     private float roadPosY = -0.5f;
     private float deltaZ = 0.5f;
-
     // Lighters params
     private int lightSegments = roadSegments / 3, lightSegmentLength = roadSegmentLength * 3;
     private int lighterHeight = 10;
-
     // Side roads params
     private int scaleSideRoad = 5;
     private float sideRoadX = (farLength + lightSegmentLength - scaleSideRoad) / 2;
-
     // Player and bots params
     private float playerPosX, playerPosY, playerPosZ;
     private float joyCoefficient = 45; // Degrees of player's rotation
@@ -67,20 +63,14 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private int place;// = level + 1;
     private int totalPlayers;// = place;
     private int finishDistance;// = (level + 1) * 400; // 500
-
-    private boolean cheatNoDeccelerate = true, sfxFinishPlay = true;
-
+    private boolean cheatNoDeccelerate = false, sfxFinishPlay = true;
     private float trackLength, trackX, trackY, trackMax; // for UI
     private ArrayList<Sprite> sprites;
-
     private boolean gameover = false;
-
     private SmartGLView mSmartGLView;
-
     private Handler handler;
     private Runnable runnable;
-    private TextView tvResult;
-
+    private TextView tvResult, tvTip;
     private Sprite sprPlayer, sprTrack;
     private Object3D player, sideRoadUp, sideRoadDown;
     private RenderPassObject3D renderPassObject3D;
@@ -91,8 +81,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private float cameraShakeDistance = 2.0f, shake;
     private float camXgame = 8f, camYgame = 10f, camZgame = 15f;
     private float camRotXgame = 40, camRotYgame = -1, camRotZgame = 0;
-
-
     //    private SoundPool soundPool;
     private int sfxExplosion = Assets.instance().sfxExplosion,
             sfxHit = Assets.instance().sfxHit, sfxFinished = Assets.instance().sfxFinished;
@@ -116,27 +104,22 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private Texture txExplosion;
     private Texture txRed;
     private Texture txLtGray;
-    private DIRECTION currentDirection = DIRECTION.STRAIGHT;
     private Random random;
 
-    //
-    private SharedPreferences preferences;
-    private String DATA_LEVEL = "level";
-
     private void loadData() {
-
-        level = preferences.getInt(DATA_LEVEL, 1);
+        level = Assets.instance().getLevel();
+//        level = 300;
         place = level + 1;
         totalPlayers = place;
         finishDistance = (level + 1) * 400; // 500
     }
 
     private void saveData() {
-        SharedPreferences.Editor editor = preferences.edit();
-        editor.putInt(DATA_LEVEL, level);
-        editor.apply();
+//        SharedPreferences.Editor editor = preferences.edit();
+//        editor.putInt(DATA_LEVEL, level);
+//        editor.apply();
+        Assets.instance().saveLevel(level);
     }
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -147,10 +130,8 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         // Set brightness
         WindowManager.LayoutParams layout = getWindow().getAttributes();
-        layout.screenBrightness = 0.5f;
-        getWindow().setAttributes(layout);
-
-        preferences = getPreferences(MODE_PRIVATE);
+        layout.screenBrightness = 0.9f;
+        this.getWindow().setAttributes(layout);
         loadData();
         //
         mSmartGLView = (SmartGLView) findViewById(R.id.smartGLView);
@@ -161,6 +142,10 @@ public class GameActivity extends Activity implements SmartGLViewController {
         tvResult.setVisibility(View.INVISIBLE);
         tvResult.setLayerType(View.LAYER_TYPE_SOFTWARE, tvResult.getPaint());
 
+        tvTip = (TextView) findViewById(R.id.tvTip);
+        tvTip.setVisibility(View.INVISIBLE);
+        tvTip.setLayerType(View.LAYER_TYPE_SOFTWARE, tvTip.getPaint());
+
         // Prepare update UI
         handler = new Handler();
         runnable = new Runnable() {
@@ -168,8 +153,18 @@ public class GameActivity extends Activity implements SmartGLViewController {
             public void run() {
                 if (gameover) {
                     tvResult.setVisibility(View.VISIBLE);
-                    String result = place + "/" + totalPlayers;
-                    tvResult.setText(String.format(getResources().getString(R.string.txt_result), result));
+                    tvTip.setVisibility(View.VISIBLE);
+                    String result = String.format(getResources().getString(R.string.txt_result), place, totalPlayers);
+                    tvResult.setText(result);
+                    String tip;
+                    if (place == 1) {
+                        tip = getString(R.string.txt_levelup);
+                    } else {
+                        tip = getString(R.string.txt_tip);
+                    }
+
+                    tip += getString(R.string.txt_tap);
+                    tvTip.setText(tip);
 
                 }
 
@@ -211,6 +206,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         RenderPassSprite bgSprite = new RenderPassSprite();
         renderPassObject3D = new RenderPassObject3D(RenderPassObject3D.ShaderType.SHADER_TEXTURE, true, true);
         renderPassSprite = new RenderPassSprite();
+
 
         renderer.addRenderPass(bgSprite);
         renderer.addRenderPass(renderPassObject3D);  // add it only once for all 3D Objects
@@ -417,7 +413,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
         goBridge.setObjects(bridge);
     }
 
-
     private Texture createTexture(int colorBg) {
         int tx = 1;
         Bitmap bitmap = Bitmap.createBitmap(tx + 1, tx + 1, Bitmap.Config.ARGB_8888);
@@ -524,8 +519,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
             if (!explosion.isVisible()) {
                 explosion.setPosition(x, y, z);
                 explosion.setVisible(true);
-//                soundPool.play(sfxExplosion, 1, 1, 0, 0, 1);
-                playSound(sfxExplosion);
+                Assets.instance().playSoundStereo(sfxExplosion, x, playerPosX, farLength);
                 break;
             }
         }
@@ -636,7 +630,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         } else {
 //            resetGame();
             if (sfxFinishPlay) {
-                playSound(sfxFinished);
+                Assets.instance().playSoundMono(sfxFinished);
                 sfxFinishPlay = false;
                 if (place == 1) {
                     level++;
@@ -749,7 +743,8 @@ public class GameActivity extends Activity implements SmartGLViewController {
             if ((ox > dx1) && (ox < dx2)) {
                 float distance = getDistance(ox, oz, playerPosX, playerPosZ);
                 if (distance < 1.7f) {
-                    playSound(sfxHit);
+                    Assets.instance().playSoundMono(sfxHit);
+
                     speed = speedBase;
                 }
 
@@ -789,20 +784,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
             ox += speedOpponents;
             object3D.setPos(ox, oy, oz);
-        }
-    }
-
-    private void playSound(int id) {
-
-        if (id == sfxHit) {
-            long time = System.currentTimeMillis() - sfxHitTime;
-            if (time > 200) {
-                sfxHitTime = System.currentTimeMillis();
-                Assets.instance().soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
-            }
-        } else {
-            Assets.instance().soundPool.stop(id);
-            Assets.instance().soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
         }
     }
 
@@ -876,6 +857,30 @@ public class GameActivity extends Activity implements SmartGLViewController {
         }
     }
 
+//    private void playSoundStereo(int id, float x, float playerPosX, float farLength) {
+//
+//        float volumeRight, volumeLeft;
+//        float delta = x - playerPosX;
+//        if (Math.abs(delta) < 1) {
+//            volumeRight = 0.5f;
+//        } else {
+//            volumeRight = 0.5f + delta / farLength;
+//        }
+//        volumeLeft = 1 - volumeRight;
+//
+//        System.out.println(volumeLeft + " : " + volumeRight);
+//        if (id == sfxHit) {
+//            long time = System.currentTimeMillis() - sfxHitTime;
+//            if (time > 500) {
+//                sfxHitTime = System.currentTimeMillis();
+//                Assets.instance().soundPool.play(id, volumeLeft, volumeRight, 1, 0, 1);
+//            }
+//        } else {
+//            Assets.instance().soundPool.stop(id);
+//            Assets.instance().soundPool.play(id, volumeLeft, volumeRight, 1, 0, 1);
+//        }
+//    }
+
     private float getDistance(float x1, float y1, float x2, float y2) {
         float mDX = x2 - x1;
         float mDY = y2 - y1;
@@ -923,6 +928,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         joyKnobSprite.setPos(joyX, joyY + joyDelta);
     }
 
-    private enum DIRECTION {RIGHT, LEFT, STRAIGHT, ANALOG}
+    private enum DIRECTION {STRAIGHT, ANALOG}
+
 
 }
