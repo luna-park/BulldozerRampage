@@ -17,6 +17,7 @@ class Assets {
     int sfxExplosion;
     int sfxHit;
     int sfxFinished;
+    int sfxFail;
     private SoundPool soundPool;
     private String DATA_LEVEL = "level";
     private Activity activity;
@@ -44,6 +45,7 @@ class Assets {
         sfxExplosion = soundPool.load(context, R.raw.explosion, 1);
         sfxHit = soundPool.load(context, R.raw.hit, 1);
         sfxFinished = soundPool.load(context, R.raw.finishrace, 1);
+        sfxFail = soundPool.load(context, R.raw.smex, 1);
     }
 
     void playSoundStereo(int id, float x, float playerPosX, float farLength) {
@@ -72,8 +74,6 @@ class Assets {
             soundPool.stop(id);
             soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
         }
-
-
     }
 
     int getLevel() {

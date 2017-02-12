@@ -82,9 +82,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private float camXgame = 8f, camYgame = 10f, camZgame = 15f;
     private float camRotXgame = 40, camRotYgame = -1, camRotZgame = 0;
     //    private SoundPool soundPool;
-    private int sfxExplosion = Assets.instance().sfxExplosion,
-            sfxHit = Assets.instance().sfxHit, sfxFinished = Assets.instance().sfxFinished;
-    private long sfxHitTime;
+    private int sfxExplosion = Assets.instance().sfxExplosion, sfxHit = Assets.instance().sfxHit;
     private GameObject goBridge;
     private int screenW, screenH;
     // Colors
@@ -108,7 +106,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
     private void loadData() {
         level = Assets.instance().getLevel();
-//        level = 300;
+//        level = 20;
         place = level + 1;
         totalPlayers = place;
         finishDistance = (level + 1) * 400; // 500
@@ -275,8 +273,9 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         opponents = new ArrayList<>();
         for (int i = 0; i < level; i++) {
-            Object3D opponent = createObject(R.raw.cube, txRed, false);
-            opponent.setScale(2, 1, 1);
+            Object3D opponent = createObject(R.raw.bulldozer, txRed, false);
+//            opponent.setScale(2, 1, 1);
+            opponent.setScale(0.001f, 0.001f, 0.001f);
             opponent.setVisible(true);
             opponents.add(opponent);
 
@@ -314,7 +313,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         for (int i = 0; i < opponents.size(); i++) {
             Object3D opponent = opponents.get(i);
-            opponent.setPos(i * farLength + halfFarLength / 2, 0.2f, 0);
+            opponent.setPos(i * farLength + halfFarLength / 2, -0.2f, 0);
         }
 
         for (int i = 0; i < bots.size(); i++) {
@@ -630,12 +629,18 @@ public class GameActivity extends Activity implements SmartGLViewController {
         } else {
 //            resetGame();
             if (sfxFinishPlay) {
-                Assets.instance().playSoundMono(sfxFinished);
+                int sfxId;
+
                 sfxFinishPlay = false;
                 if (place == 1) {
                     level++;
                     saveData();
+                    sfxId = Assets.instance().sfxFinished;
+                } else {
+                    sfxId = Assets.instance().sfxFail;
                 }
+
+                Assets.instance().playSoundMono(sfxId);
             }
             speed = 0;
             gameover = true;
@@ -769,7 +774,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
                 }
 
                 float sinAlpha = (float) Math.sin(ox * 0.1f);
-                oz = sinAlpha * roadSegmentLength / 2;
+                oz = sinAlpha * roadSegmentLength / 2 + deltaZ;
 
                 float alpha = (float) Math.toDegrees(Math.asin(sinAlpha));
 
