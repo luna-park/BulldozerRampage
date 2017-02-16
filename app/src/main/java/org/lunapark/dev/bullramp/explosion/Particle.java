@@ -8,7 +8,7 @@ import fr.arnaudguyon.smartgl.opengl.Object3D;
 
 public class Particle {
 
-    private Object3D object3D;
+    private final Object3D object3D;
     private float x, y, z, x0, y0, z0;
     private float theta, phi, r = 0.1f;
     private boolean visible;

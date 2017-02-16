@@ -12,7 +12,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     private String[] title;
     private TextView tvTitle, tvLevel;
-    private String DATA_LEVEL = "level";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,7 +41,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 } else {
                     frame = 0;
                 }
-                // upadte textView here
+                // update textView here
                 handler.postDelayed(this, 150); // set time here to refresh textView
             }
         };

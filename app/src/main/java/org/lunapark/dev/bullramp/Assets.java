@@ -14,14 +14,13 @@ import static android.content.Context.MODE_PRIVATE;
 class Assets {
 
     private static Assets ourInstance = new Assets();
+    private final String DATA_LEVEL = "level";
     int sfxExplosion;
     int sfxHit;
     int sfxFinished;
     int sfxFail;
     private SoundPool soundPool;
-    private String DATA_LEVEL = "level";
     private Activity activity;
-
     private long sfxHitTime = 0;
 
     private Assets() {
