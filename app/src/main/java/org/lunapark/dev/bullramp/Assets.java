@@ -1,6 +1,5 @@
 package org.lunapark.dev.bullramp;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
@@ -20,8 +19,10 @@ class Assets {
     int sfxFinished;
     int sfxFail;
     private SoundPool soundPool;
-    private Activity activity;
+
+    private Context context;
     private long sfxHitTime = 0;
+    private SharedPreferences preferences;
 
     private Assets() {
     }
@@ -31,7 +32,8 @@ class Assets {
     }
 
     void load(Context context) {
-        activity = (Activity) context;
+        this.context = context;
+        preferences = context.getSharedPreferences(DATA_LEVEL, MODE_PRIVATE);
         // Prepare sound
         soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 0);
         soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
@@ -76,11 +78,13 @@ class Assets {
     }
 
     int getLevel() {
-        return activity.getPreferences(MODE_PRIVATE).getInt(DATA_LEVEL, 1);
+        return preferences.getInt(DATA_LEVEL, 1);
     }
 
     void saveLevel(int level) {
-        SharedPreferences.Editor editor = activity.getPreferences(MODE_PRIVATE).edit();
+
+
+        SharedPreferences.Editor editor = preferences.edit();
         editor.putInt(DATA_LEVEL, level);
         editor.apply();
     }
