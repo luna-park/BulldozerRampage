@@ -16,12 +16,12 @@ import fr.arnaudguyon.smartgl.tools.WavefrontModel;
 public class Explosion {
 
     private float x, y, z, size;
-    private int num = 5;
-    private int objFile;
-    private Texture texture;
+    private final int num = 5;
+    private final int objFile;
+    private final Texture texture;
     private ArrayList<Particle> particles;
-    private Context context;
-    private RenderPassObject3D renderPassObject3D;
+    private final Context context;
+    private final RenderPassObject3D renderPassObject3D;
     private boolean visible;
 
     public Explosion(Context context, RenderPassObject3D renderPassObject3D, int objFile, Texture texture) {

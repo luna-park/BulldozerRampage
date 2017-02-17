@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
 import android.view.View;
@@ -30,41 +31,42 @@ import fr.arnaudguyon.smartgl.opengl.Texture;
 import fr.arnaudguyon.smartgl.tools.WavefrontModel;
 import fr.arnaudguyon.smartgl.touch.TouchHelperEvent;
 
+import static org.lunapark.dev.bullramp.Const.camRotX;
+import static org.lunapark.dev.bullramp.Const.camRotZ;
+import static org.lunapark.dev.bullramp.Const.camX1;
+import static org.lunapark.dev.bullramp.Const.camX2;
+import static org.lunapark.dev.bullramp.Const.camY;
+import static org.lunapark.dev.bullramp.Const.camZ;
+import static org.lunapark.dev.bullramp.Const.cameraShakeDistance;
+import static org.lunapark.dev.bullramp.Const.cheatNoDeccelerate;
+import static org.lunapark.dev.bullramp.Const.deltaZ;
+import static org.lunapark.dev.bullramp.Const.farLength;
+import static org.lunapark.dev.bullramp.Const.halfFarLength;
+import static org.lunapark.dev.bullramp.Const.lightSegmentLength;
+import static org.lunapark.dev.bullramp.Const.lightSegments;
+import static org.lunapark.dev.bullramp.Const.lighterHeight;
+import static org.lunapark.dev.bullramp.Const.numBots;
+import static org.lunapark.dev.bullramp.Const.roadLimit;
+import static org.lunapark.dev.bullramp.Const.roadPosY;
+import static org.lunapark.dev.bullramp.Const.roadSegmentLength;
+import static org.lunapark.dev.bullramp.Const.roadSegments;
+import static org.lunapark.dev.bullramp.Const.scaleSideRoad;
+import static org.lunapark.dev.bullramp.Const.sideRoadX;
+import static org.lunapark.dev.bullramp.Const.speedBase;
+import static org.lunapark.dev.bullramp.Const.speedBots;
+import static org.lunapark.dev.bullramp.Const.speedLimit;
+import static org.lunapark.dev.bullramp.Const.speedOpponents;
+
 public class GameActivity extends Activity implements SmartGLViewController {
-    // Road params
-    private final int roadSegments = 12;
-    private final int roadSegmentLength = 10;
-    private final float roadLimit = roadSegmentLength / 2;
-    private final float farLength = roadSegmentLength * roadSegments;
-    private final float halfFarLength = farLength / 2;
-    private final float roadPosY = -0.5f;
-    private final float deltaZ = 0.5f;
-    // Lighters params
-    private final int lightSegments = roadSegments / 3;
-    private final int lightSegmentLength = roadSegmentLength * 3;
-    private final int lighterHeight = 10;
-    // Side roads params
-    private final int scaleSideRoad = 5;
-    private final float sideRoadX = (farLength + lightSegmentLength - scaleSideRoad) / 2;
-    private final float speedBase = 0.3f;
-    private final float speedLimit = speedBase * 2;
-    private final float velocity = 0.0005f; // 0.0002f;
-    private final float speedBots = speedBase / 4;
-    private final float speedOpponents = speedBase * 1.2f;
-    private final boolean cheatNoDeccelerate = false;
-    private final float cameraShakeDistance = 2.0f;
-    private final float camX1 = -8f; // 8; -8
-    private final float camY = 10f; // 10; 10
-    private final float camRotX = 40f; // 40; 40
-    private final float camRotZ = 0; // 0; 0
-    private final float camX2 = -2f; // 8; -8
-    private final float camZ = 15f; // 15; 0
-    private final int colHoloBright = Color.argb(128, 0, 221, 255);
-    private final int colDkGray = Color.argb(128, 64, 64, 64);
-    private final int colLtGray = Color.argb(128, 192, 192, 192);
-    private final int colRed = Color.argb(128, 240, 0, 0);
-    private final int colOrange = Color.argb(160, 255, 125, 11);
-    float camX = camX2;
+
+    private Random random;
+
+    private float velocity = 0.0005f; // 0.0002f;
+
+    private float camX = camX2;
+
+    private enum DIRECTION {STRAIGHT, ANALOG}
+
     private DIRECTION currentDirection = DIRECTION.STRAIGHT;
     private boolean joyVisible;
     private float joyDelta;
@@ -91,7 +93,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private Sprite sprPlayer, sprTrack;
     private Object3D player, sideRoadUp, sideRoadDown;
     private RenderPassObject3D renderPassObject3D;
-    private RenderPassSprite renderPassSprite;
+    private RenderPassSprite renderPassSprite, bgSprite;
     private ArrayList<Texture> textures;
     private ArrayList<Object3D> bots, opponents, road, lighters, uptown, downtown;
     private ArrayList<Explosion> explosions;
@@ -100,10 +102,15 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private GameObject goBridge;
     private int screenW, screenH;
     // Colors
-    private int colHoloLight = Color.argb(128, 51, 181, 229);
-    private int colHoloDark = Color.argb(128, 0, 153, 204);
-    private int colYellow = Color.argb(128, 255, 255, 0);
-    private int colWhite = Color.argb(128, 255, 255, 255);
+    private final int colHoloLight = Color.argb(128, 51, 181, 229);
+    private final int colHoloDark = Color.argb(128, 0, 153, 204);
+    private final int colYellow = Color.argb(128, 255, 255, 0);
+    private final int colWhite = Color.argb(128, 255, 255, 255);
+    private final int colHoloBright = Color.argb(128, 0, 221, 255);
+    private final int colDkGray = Color.argb(128, 64, 64, 64);
+    private final int colLtGray = Color.argb(128, 192, 192, 192);
+    private final int colRed = Color.argb(128, 240, 0, 0);
+    private final int colOrange = Color.argb(160, 255, 125, 11);
     // Textures
     private Texture txHoloBright;
     private Texture txRoad;
@@ -111,12 +118,12 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private Texture txExplosion;
     private Texture txRed;
     private Texture txLtGray;
-    private Random random;
-    private RenderPassSprite bgSprite;
+
 
     private void loadData() {
         level = Assets.instance().getLevel();
-//        level = 1;
+        int deltaSpeed = level / 7;
+        Log.e("BULLDOZER RAMPAGE", String.format("Level: %d; Speed delta: %d", level, deltaSpeed));
         place = level + 1;
         totalPlayers = place;
         finishDistance = (level + 1) * 400; // 500
@@ -176,7 +183,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
             }
         };
 
-        // Double pixels
         Display display = getWindowManager().getDefaultDisplay();
         Point size = new Point();
         display.getSize(size);
@@ -249,7 +255,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         txHoloBright = createTexture(colHoloBright);
         txExplosion = createTexture(Color.YELLOW, Color.rgb(255, 112, 16));
         txRoad = createTextureRoad();
-        txDkGray = createTexture(colDkGray);
+        txDkGray = createTexture(Color.DKGRAY);
         txRed = createTexture(colRed);
         txLtGray = createTexture(colLtGray);
         Texture txPlayer = createTexture(colOrange);
@@ -299,7 +305,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         // Create 3D objects
         bots = new ArrayList<>();
-        for (int i = 0; i < 7; i++) {
+        for (int i = 0; i < numBots; i++) {
             Object3D bot = createObject(R.raw.truck, txHoloBright, true);
             bot.setScale(0.001f, 0.001f, 0.001f);
             bot.setVisible(false);
@@ -330,7 +336,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
         renderPassSprite.addSprite(sprPlayer);
 
 
-
         // Create road
         road = new ArrayList<>();
         for (int i = 0; i < roadSegments; i++) {
@@ -339,8 +344,8 @@ public class GameActivity extends Activity implements SmartGLViewController {
             road.add(ground);
         }
 
-        sideRoadDown = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
-        sideRoadUp = createObject(R.raw.plane, createTexture(Color.DKGRAY), false);
+        sideRoadDown = createObject(R.raw.plane, txDkGray, false);
+        sideRoadUp = createObject(R.raw.plane, txDkGray, false);
         sideRoadDown.setScale(0.75f, 1, scaleSideRoad);
         sideRoadUp.setScale(0.75f, 1, scaleSideRoad);
 
@@ -503,6 +508,11 @@ public class GameActivity extends Activity implements SmartGLViewController {
                 }
             });
         }
+
+        bots.clear();
+        opponents.clear();
+        road.clear();
+        lighters.clear();
     }
 
     @Override
@@ -524,7 +534,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
             if (!explosion.isVisible()) {
                 explosion.setPosition(x, y, z);
                 explosion.setVisible(true);
-                Assets.instance().playSoundStereo(Assets.instance().sfxExplosion, x, playerPosX, farLength);
+                Assets.instance().playSoundStereo(Assets.instance().sfxExplosion, x, playerPosX);
                 break;
             }
         }
@@ -942,8 +952,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
             this.finish();
         return super.onKeyUp(keyCode, event);
     }
-
-    private enum DIRECTION {STRAIGHT, ANALOG}
 
 
 }

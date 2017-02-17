@@ -10,7 +10,9 @@ public class Particle {
 
     private final Object3D object3D;
     private float x, y, z, x0, y0, z0;
-    private float theta, phi, r = 0.1f;
+    private final float theta;
+    private final float phi;
+    private float r = 0.1f;
     private boolean visible;
 
     public Particle(float theta, float phi, Object3D object3D) {

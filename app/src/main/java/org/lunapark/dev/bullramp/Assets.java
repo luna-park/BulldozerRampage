@@ -6,13 +6,14 @@ import android.media.AudioManager;
 import android.media.SoundPool;
 
 import static android.content.Context.MODE_PRIVATE;
+import static org.lunapark.dev.bullramp.Const.farLength;
 
 /**
  * Created by znak on 08.02.2017.
  */
 class Assets {
 
-    private static Assets ourInstance = new Assets();
+    private static final Assets ourInstance = new Assets();
     private final String DATA_LEVEL = "level";
     int sfxExplosion;
     int sfxHit;
@@ -32,7 +33,7 @@ class Assets {
     }
 
     void load(Context context) {
-        this.context = context;
+        this.context = context.getApplicationContext();
         preferences = context.getSharedPreferences(DATA_LEVEL, MODE_PRIVATE);
         // Prepare sound
         soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 0);
@@ -49,7 +50,7 @@ class Assets {
         sfxFail = soundPool.load(context, R.raw.smex, 1);
     }
 
-    void playSoundStereo(int id, float x, float playerPosX, float farLength) {
+    void playSoundStereo(int id, float x, float playerPosX) {
 
         float volumeRight, volumeLeft;
         float delta = x - playerPosX;
