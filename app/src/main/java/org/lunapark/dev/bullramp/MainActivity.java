@@ -2,11 +2,15 @@ package org.lunapark.dev.bullramp;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+
+import static org.lunapark.dev.bullramp.Const.DATA_LEVEL;
+import static org.lunapark.dev.bullramp.Const.MAX_ENEMIES;
 
 public class MainActivity extends Activity implements View.OnClickListener {
 
@@ -25,9 +29,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         tvTitle = (TextView) findViewById(R.id.tvTitle);
         tvLevel = (TextView) findViewById(R.id.tvLevel);
 
-        Assets.instance().load(this);
+        SharedPreferences preferences = getSharedPreferences(DATA_LEVEL, MODE_PRIVATE);
+        Assets.instance().load(preferences);
         title = getResources().getStringArray(R.array.title_anim);
-
 
         final Handler handler = new Handler();
         Runnable runnable = new Runnable() {
@@ -77,7 +81,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
     @Override
     protected void onResume() {
         super.onResume();
-
-        tvLevel.setText(String.format(getString(R.string.txt_level), Assets.instance().getLevel()));
+        int level = Assets.instance().getLevel();
+        int levelMajor = level / MAX_ENEMIES + 1;
+        int levelMinor = level % MAX_ENEMIES + 1;
+        tvLevel.setText(String.format(getString(R.string.txt_level), levelMajor, levelMinor));
     }
 }

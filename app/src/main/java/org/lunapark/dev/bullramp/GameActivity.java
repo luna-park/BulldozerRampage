@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -31,39 +33,42 @@ import fr.arnaudguyon.smartgl.opengl.Texture;
 import fr.arnaudguyon.smartgl.tools.WavefrontModel;
 import fr.arnaudguyon.smartgl.touch.TouchHelperEvent;
 
-import static org.lunapark.dev.bullramp.Const.camRotX;
-import static org.lunapark.dev.bullramp.Const.camRotZ;
-import static org.lunapark.dev.bullramp.Const.camX1;
-import static org.lunapark.dev.bullramp.Const.camX2;
-import static org.lunapark.dev.bullramp.Const.camY;
-import static org.lunapark.dev.bullramp.Const.camZ;
-import static org.lunapark.dev.bullramp.Const.cameraShakeDistance;
-import static org.lunapark.dev.bullramp.Const.cheatNoDeccelerate;
-import static org.lunapark.dev.bullramp.Const.deltaZ;
-import static org.lunapark.dev.bullramp.Const.farLength;
-import static org.lunapark.dev.bullramp.Const.halfFarLength;
-import static org.lunapark.dev.bullramp.Const.lightSegmentLength;
-import static org.lunapark.dev.bullramp.Const.lightSegments;
-import static org.lunapark.dev.bullramp.Const.lighterHeight;
-import static org.lunapark.dev.bullramp.Const.numBots;
-import static org.lunapark.dev.bullramp.Const.roadLimit;
-import static org.lunapark.dev.bullramp.Const.roadPosY;
-import static org.lunapark.dev.bullramp.Const.roadSegmentLength;
-import static org.lunapark.dev.bullramp.Const.roadSegments;
-import static org.lunapark.dev.bullramp.Const.scaleSideRoad;
-import static org.lunapark.dev.bullramp.Const.sideRoadX;
-import static org.lunapark.dev.bullramp.Const.speedBase;
-import static org.lunapark.dev.bullramp.Const.speedBots;
-import static org.lunapark.dev.bullramp.Const.speedLimit;
-import static org.lunapark.dev.bullramp.Const.speedOpponents;
+import static org.lunapark.dev.bullramp.Const.BONUS_CHANCE;
+import static org.lunapark.dev.bullramp.Const.BRAKE;
+import static org.lunapark.dev.bullramp.Const.CAMERA_SHAKE_DISTANCE;
+import static org.lunapark.dev.bullramp.Const.CAM_ROT_X;
+import static org.lunapark.dev.bullramp.Const.CAM_ROT_Z;
+import static org.lunapark.dev.bullramp.Const.CAM_X_1;
+import static org.lunapark.dev.bullramp.Const.CAM_X_2;
+import static org.lunapark.dev.bullramp.Const.CAM_Y;
+import static org.lunapark.dev.bullramp.Const.CAM_Z;
+import static org.lunapark.dev.bullramp.Const.DELTA_Z;
+import static org.lunapark.dev.bullramp.Const.FAR_LENGTH;
+import static org.lunapark.dev.bullramp.Const.HALF_FAR_LENGTH;
+import static org.lunapark.dev.bullramp.Const.LIGHTER_HEIGHT;
+import static org.lunapark.dev.bullramp.Const.LIGHT_SEGMENTS;
+import static org.lunapark.dev.bullramp.Const.LIGHT_SEGMENT_LENGTH;
+import static org.lunapark.dev.bullramp.Const.MAX_ENEMIES;
+import static org.lunapark.dev.bullramp.Const.NUM_BOTS;
+import static org.lunapark.dev.bullramp.Const.ROAD_LIMIT;
+import static org.lunapark.dev.bullramp.Const.ROAD_POS_Y;
+import static org.lunapark.dev.bullramp.Const.ROAD_SEGMENTS;
+import static org.lunapark.dev.bullramp.Const.ROAD_SEGMENT_LENGTH;
+import static org.lunapark.dev.bullramp.Const.SCALE_SIDE_ROAD;
+import static org.lunapark.dev.bullramp.Const.SIDE_ROAD_X;
 
 public class GameActivity extends Activity implements SmartGLViewController {
 
     private Random random;
 
-    private float velocity = 0.0005f; // 0.0002f;
+    private float velocity = 0.02f; // 0.0002f;
+    private float speedBase = 0.3f;
+    private float speedLimit, speedOpponents, speedBots;
+    private boolean bonusActive = false;
 
-    private float camX = camX2;
+    private float camX = CAM_X_2;
+    private SoundPool soundPool;
+    private long sfxHitTime = 0, bonusTimer;
 
     private enum DIRECTION {STRAIGHT, ANALOG}
 
@@ -81,6 +86,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private int place;// = level + 1;
     private int totalPlayers;// = place;
     private int finishDistance;// = (level + 1) * 400; // 500
+    private int enemies;
     private boolean sfxFinishPlay = true;
     // Camera settings
     private float trackLength, trackX, trackY, trackMax; // for UI
@@ -91,7 +97,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private Runnable runnable;
     private TextView tvResult, tvTip;
     private Sprite sprPlayer, sprTrack;
-    private Object3D player, sideRoadUp, sideRoadDown;
+    private Object3D player, sideRoadUp, sideRoadDown, bonusShield, bonus;
     private RenderPassObject3D renderPassObject3D;
     private RenderPassSprite renderPassSprite, bgSprite;
     private ArrayList<Texture> textures;
@@ -111,6 +117,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private final int colLtGray = Color.argb(128, 192, 192, 192);
     private final int colRed = Color.argb(128, 240, 0, 0);
     private final int colOrange = Color.argb(160, 255, 125, 11);
+    private final int colGreen = Color.argb(100, 128, 255, 128);
     // Textures
     private Texture txHoloBright;
     private Texture txRoad;
@@ -119,14 +126,26 @@ public class GameActivity extends Activity implements SmartGLViewController {
     private Texture txRed;
     private Texture txLtGray;
 
+    // Sounds
+    private int sfxExplosion, sfxHit, sfxFinished, sfxFail, sfxPowerUp, sfxPowerDown;
+
 
     private void loadData() {
         level = Assets.instance().getLevel();
-        int deltaSpeed = level / 7;
-        Log.e("BULLDOZER RAMPAGE", String.format("Level: %d; Speed delta: %d", level, deltaSpeed));
-        place = level + 1;
+//        level  = 20;
+        enemies = level % MAX_ENEMIES + 1;
+        float deltaSpeed = level / MAX_ENEMIES;
+        place = enemies + 1;
         totalPlayers = place;
-        finishDistance = (level + 1) * 400; // 500
+        finishDistance = (enemies + 1) * 400; // 400
+
+        speedBase += deltaSpeed / 10;
+        velocity += deltaSpeed / 50;
+        speedLimit = speedBase * 2;
+        speedOpponents = speedBase * 1.2f;
+        speedBots = speedBase * 20;
+
+        Log.e("BULLRAMP", String.format("Speed base: %f", speedBase));
     }
 
     private void saveData() {
@@ -188,6 +207,60 @@ public class GameActivity extends Activity implements SmartGLViewController {
         display.getSize(size);
         screenW = size.x;
         screenH = size.y;
+
+        // Prepare sound
+        soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 0);
+
+        soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+            @Override
+            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
+
+            }
+        });
+        loadSounds();
+    }
+
+    private void loadSounds() {
+        sfxExplosion = soundPool.load(this, R.raw.explosion, 1);
+        sfxFinished = soundPool.load(this, R.raw.finishrace, 1);
+        sfxPowerDown = soundPool.load(this, R.raw.powerdown, 1);
+        sfxPowerUp = soundPool.load(this, R.raw.powerup, 1);
+        sfxFail = soundPool.load(this, R.raw.smex, 1);
+        sfxHit = soundPool.load(this, R.raw.hit, 1);
+    }
+
+    private void releaseSounds() {
+        soundPool.release();
+    }
+
+    private void playSoundStereo(int id, float x) {
+
+        float volumeRight, volumeLeft;
+        float delta = x - playerPosX;
+        if (Math.abs(delta) < 1) {
+            volumeRight = 0.5f;
+        } else {
+            volumeRight = 0.5f + delta / FAR_LENGTH;
+        }
+        volumeLeft = 1 - volumeRight;
+        soundPool.stop(id);
+        soundPool.play(id, volumeLeft, volumeRight, 1, 0, 1);
+
+    }
+
+    private void playSoundMono(int id) {
+        if (id == sfxHit) {
+            long time = System.currentTimeMillis() - sfxHitTime;
+            if (time > 500) {
+                sfxHitTime = System.currentTimeMillis();
+                float pitch = random.nextFloat() / 2;
+                soundPool.play(id, 0.5f, 0.5f, 1, 0, 0.75f + pitch);
+                if (!bonusActive) speed *= BRAKE;
+            }
+        } else {
+            soundPool.stop(id);
+            soundPool.play(id, 0.5f, 0.5f, 1, 0, 1);
+        }
     }
 
     @Override
@@ -231,7 +304,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         for (int i = 0; i < opponents.size(); i++) {
             Object3D opponent = opponents.get(i);
-            opponent.setPos(i * farLength + halfFarLength / 2, -0.2f, 0);
+            opponent.setPos(i * FAR_LENGTH + HALF_FAR_LENGTH / 2, -0.2f, 0);
         }
 
         for (int i = 0; i < bots.size(); i++) {
@@ -241,12 +314,12 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         for (int i = 0; i < road.size(); i++) {
             Object3D ground = road.get(i);
-            ground.setPos(roadSegmentLength * i - halfFarLength, roadPosY, roadSegmentLength / 2 - deltaZ);
+            ground.setPos(ROAD_SEGMENT_LENGTH * i - HALF_FAR_LENGTH, ROAD_POS_Y, ROAD_SEGMENT_LENGTH / 2 - DELTA_Z);
         }
-        sideRoadDown.setPos(sideRoadX, -0.5f, roadSegmentLength * scaleSideRoad + roadSegmentLength / 2 - deltaZ);
-        sideRoadUp.setPos(sideRoadX, -0.5f, -roadSegmentLength / 2 - deltaZ);
+        sideRoadDown.setPos(SIDE_ROAD_X, -0.5f, ROAD_SEGMENT_LENGTH * SCALE_SIDE_ROAD + ROAD_SEGMENT_LENGTH / 2 - DELTA_Z);
+        sideRoadUp.setPos(SIDE_ROAD_X, -0.5f, -ROAD_SEGMENT_LENGTH / 2 - DELTA_Z);
 
-        goBridge.setPosition(0, 0, -deltaZ);
+        goBridge.setPosition(0, 0, -DELTA_Z);
     }
 
     private void createEnvironment() {
@@ -259,6 +332,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         txRed = createTexture(colRed);
         txLtGray = createTexture(colLtGray);
         Texture txPlayer = createTexture(colOrange);
+        Texture txBonus = createTexture(colGreen);
 
         // Create sprites
         trackLength = screenW * 0.8f;
@@ -305,7 +379,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         // Create 3D objects
         bots = new ArrayList<>();
-        for (int i = 0; i < numBots; i++) {
+        for (int i = 0; i < NUM_BOTS; i++) {
             Object3D bot = createObject(R.raw.truck, txHoloBright, true);
             bot.setScale(0.001f, 0.001f, 0.001f);
             bot.setVisible(false);
@@ -313,7 +387,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
         }
 
         opponents = new ArrayList<>();
-        for (int i = 0; i < level; i++) {
+        for (int i = 0; i < enemies; i++) {
             Object3D opponent = createObject(R.raw.bulldozer, txRed, false);
 //            opponent.setScale(2, 1, 1);
             opponent.setScale(0.001f, 0.001f, 0.001f);
@@ -330,35 +404,42 @@ public class GameActivity extends Activity implements SmartGLViewController {
         // Create player
         player = createObject(R.raw.bulldozer, txPlayer, false);
         player.setScale(0.001f, 0.001f, 0.001f);
+
         sprPlayer = new Sprite(sprH, sprH);
         sprPlayer.setPivot(0.5f, 0.5f);
         sprPlayer.setTexture(txPlayer);
         renderPassSprite.addSprite(sprPlayer);
 
+        bonus = createObject(R.raw.cube, txBonus, false);
+        bonus.setPos(-FAR_LENGTH, 0, 0);
+        bonusShield = createObject(R.raw.cube, txExplosion, false);
+//        bonusShield.setScale(3, 1.5f, 2.5f);
+        bonusShield.setScale(3, 1.5f, 1);
+        bonusShield.setVisible(false);
 
         // Create road
         road = new ArrayList<>();
-        for (int i = 0; i < roadSegments; i++) {
+        for (int i = 0; i < ROAD_SEGMENTS; i++) {
             Object3D ground = createObject(R.raw.plane, txRoad, false);
-//            ground.setPos(roadSegmentLength * i - halfFarLength, roadPosY, roadSegmentLength / 2);
+//            ground.setPos(ROAD_SEGMENT_LENGTH * i - HALF_FAR_LENGTH, ROAD_POS_Y, ROAD_SEGMENT_LENGTH / 2);
             road.add(ground);
         }
 
         sideRoadDown = createObject(R.raw.plane, txDkGray, false);
         sideRoadUp = createObject(R.raw.plane, txDkGray, false);
-        sideRoadDown.setScale(0.75f, 1, scaleSideRoad);
-        sideRoadUp.setScale(0.75f, 1, scaleSideRoad);
+        sideRoadDown.setScale(0.75f, 1, SCALE_SIDE_ROAD);
+        sideRoadUp.setScale(0.75f, 1, SCALE_SIDE_ROAD);
 
         lighters = new ArrayList<>();
-        for (int i = 0; i < lightSegments; i++) {
-            float x = lightSegmentLength * i - halfFarLength;
+        for (int i = 0; i < LIGHT_SEGMENTS; i++) {
+            float x = LIGHT_SEGMENT_LENGTH * i - HALF_FAR_LENGTH;
             Object3D lighter1 = createObject(R.raw.cube, txLtGray, false);
-            lighter1.setPos(x, lighterHeight / 2 - 0.5f, -roadSegmentLength - deltaZ);
-            lighter1.setScale(0.25f, lighterHeight, 0.25f);
+            lighter1.setPos(x, LIGHTER_HEIGHT / 2 - 0.5f, -ROAD_SEGMENT_LENGTH - DELTA_Z);
+            lighter1.setScale(0.25f, LIGHTER_HEIGHT, 0.25f);
 
             Object3D lighter2 = createObject(R.raw.cube, txLtGray, false);
-            lighter2.setPos(x, lighterHeight / 2 - 0.5f, roadSegmentLength - deltaZ);
-            lighter2.setScale(0.25f, lighterHeight, 0.25f);
+            lighter2.setPos(x, LIGHTER_HEIGHT / 2 - 0.5f, ROAD_SEGMENT_LENGTH - DELTA_Z);
+            lighter2.setScale(0.25f, LIGHTER_HEIGHT, 0.25f);
 
             lighters.add(lighter1);
             lighters.add(lighter2);
@@ -366,11 +447,11 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         ArrayList<Object3D> bridge = new ArrayList<>();
         Object3D bridge1 = createObject(R.raw.cube, txLtGray, false);
-        bridge1.setPos(0, 1.5f, -50 - roadSegmentLength);
+        bridge1.setPos(0, 1.5f, -50 - ROAD_SEGMENT_LENGTH);
         bridge1.setScale(10, 4, 100);
         bridge.add(bridge1);
         Object3D bridge2 = createObject(R.raw.cube, txLtGray, false);
-        bridge2.setPos(0, 1.5f, 50 + roadSegmentLength);
+        bridge2.setPos(0, 1.5f, 50 + ROAD_SEGMENT_LENGTH);
         bridge2.setScale(10, 4, 100);
         bridge.add(bridge2);
 
@@ -381,17 +462,17 @@ public class GameActivity extends Activity implements SmartGLViewController {
 
         int houseCount = 3;
 
-        float houseStep = halfFarLength / houseCount;
+        float houseStep = HALF_FAR_LENGTH / houseCount;
 
         uptown = new ArrayList<>();
         downtown = new ArrayList<>();
 
         for (int i = 0; i < houseCount; i++) {
             Object3D uptown1 = createObject(R.raw.cube, txLtGray, false);
-            uptown1.setPos(20 + i * houseStep, 1.5f, -(10 + roadSegmentLength));
+            uptown1.setPos(20 + i * houseStep, 1.5f, -(10 + ROAD_SEGMENT_LENGTH));
             uptown1.setScale(10, 4, 10);
             Object3D uptown2 = createObject(R.raw.cube, txLtGray, false);
-            uptown2.setPos(-20 - i * houseStep, 1.5f, -(10 + roadSegmentLength));
+            uptown2.setPos(-20 - i * houseStep, 1.5f, -(10 + ROAD_SEGMENT_LENGTH));
             uptown2.setScale(10, 4, 10);
 
             bridge.add(uptown1);
@@ -400,10 +481,10 @@ public class GameActivity extends Activity implements SmartGLViewController {
             uptown.add(uptown2);
 
             Object3D downtown1 = createObject(R.raw.cube, txLtGray, false);
-            downtown1.setPos(20 + i * houseStep, 1.5f, 10 + roadSegmentLength);
+            downtown1.setPos(20 + i * houseStep, 1.5f, 10 + ROAD_SEGMENT_LENGTH);
             downtown1.setScale(10, 4, 10);
             Object3D downtown2 = createObject(R.raw.cube, txLtGray, false);
-            downtown2.setPos(-20 - i * houseStep, 1.5f, 10 + roadSegmentLength);
+            downtown2.setPos(-20 - i * houseStep, 1.5f, 10 + ROAD_SEGMENT_LENGTH);
             downtown2.setScale(10, 4, 10);
 
             bridge.add(downtown1);
@@ -470,7 +551,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
     }
 
     private Texture createTextureRoad() {
-        int size = roadSegmentLength * 4;
+        int size = ROAD_SEGMENT_LENGTH * 4;
         Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
 
         bitmap.eraseColor(Color.DKGRAY); // Закрашиваем цветом
@@ -509,6 +590,8 @@ public class GameActivity extends Activity implements SmartGLViewController {
             });
         }
 
+        releaseSounds();
+
         bots.clear();
         opponents.clear();
         road.clear();
@@ -534,7 +617,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
             if (!explosion.isVisible()) {
                 explosion.setPosition(x, y, z);
                 explosion.setVisible(true);
-                Assets.instance().playSoundStereo(Assets.instance().sfxExplosion, x, playerPosX);
+                playSoundStereo(sfxExplosion, x);
                 break;
             }
         }
@@ -566,33 +649,37 @@ public class GameActivity extends Activity implements SmartGLViewController {
                     if (distance < 1.5f) {
                         object3D.setVisible(false);
                         explosion(ox, oy, oz);
-                        shake = cameraShakeDistance;
-                        if (!cheatNoDeccelerate) speed = speedBase;
+
+                        if (!bonusActive) {
+                            speed *= BRAKE;
+                            shake = CAMERA_SHAKE_DISTANCE;
+                        }
                     }
 
-                    if (ox < playerPosX - halfFarLength) {
+                    if (ox < playerPosX - HALF_FAR_LENGTH) {
                         object3D.setVisible(false);
-                        object3D.setPos(ox + farLength * 2, oy, oz);
+//                        object3D.setPos(ox + FAR_LENGTH * 2, oy, oz);
                     }
 
                     if (oz > 0) {
-                        ox += speedBots;
+                        ox += speedBots * delta;
                         object3D.setRotation(0, 0, 0);
                     } else {
-                        ox -= speedBots;
+                        ox -= speedBots * delta;
                         object3D.setRotation(0, 180, 0);
                     }
                     object3D.setPos(ox, oy, oz);
                 }
             }
 
+//            updateBots();
             updateOpponents();
 
             // Move player
             double playerAngle = Math.toRadians(360 - playerRotY);
-            if (speed < speedLimit) speed += velocity;
+            if (speed < speedLimit) speed += velocity * delta;
             float z = (float) (-speed * Math.sin(playerAngle));
-            if (Math.abs(playerPosZ + z) > roadLimit) {
+            if (Math.abs(playerPosZ + z) > ROAD_LIMIT) {
                 z = 0;
                 currentDirection = DIRECTION.STRAIGHT;
             }
@@ -622,16 +709,42 @@ public class GameActivity extends Activity implements SmartGLViewController {
                     player.addRotY(k * delta);
             }
 
+            // Bonus
+            float bonusDistance = getDistance(bonus.getPosX(), bonus.getPosZ(), playerPosX, playerPosZ);
+            if (bonus.isVisible()) {
+                bonus.addRotX(200 * delta);
+                bonus.addRotY(300 * delta);
+                bonus.addRotZ(200 * delta);
+            }
+
+            if (bonusDistance < 1.7f && !bonusActive && bonus.isVisible()) {
+                bonusActive = true;
+                bonusTimer = System.currentTimeMillis();
+                bonusShield.setVisible(true);
+                bonus.setVisible(false);
+                playSoundMono(sfxPowerUp);
+                speed = speedLimit;
+            }
+
+            if (bonusActive) {
+                if (System.currentTimeMillis() > bonusTimer + 10000) {
+                    bonusActive = false;
+                    bonusShield.setVisible(false);
+                    playSoundMono(sfxPowerDown);
+                }
+                bonusShield.setPos(playerPosX + x, playerPosY + 0.7f, playerPosZ + z);
+                bonusShield.addRotY(1000 * delta);
+            }
 
             // Camera
             if (clox) {
-                if (camX > camX1) {
+                if (camX > CAM_X_1) {
                     camX -= delta * 1;
                 } else {
                     clox = false;
                 }
             } else {
-                if (camX < camX2) {
+                if (camX < CAM_X_2) {
                     camX += delta * 1;
 
                 } else {
@@ -640,16 +753,15 @@ public class GameActivity extends Activity implements SmartGLViewController {
             }
 
             // Update camera
-//            float alpha = (float) Math.sin(playerPosX * 0.1f);
             if (shake > 0) shake -= 5 * delta;
             float cx = playerPosX + camX + shake + 8;// + alpha;
-            float cy = playerPosY + camY + shake;
-            float cz = playerPosZ + camZ + shake;// + alpha;
+            float cy = playerPosY + CAM_Y + shake;
+            float cz = playerPosZ + CAM_Z + shake;// + alpha;
 
-            float beta = (float) Math.toDegrees(Math.atan(camX / camZ));
+            float beta = (float) Math.toDegrees(Math.atan(camX / CAM_Z));
 
             camera.setPosition(cx, cy, cz);
-            camera.setRotation(-camRotX, beta, camRotZ);
+            camera.setRotation(-CAM_ROT_X, beta, CAM_ROT_Z);
         } else {
 //            resetGame();
             if (sfxFinishPlay) {
@@ -659,26 +771,28 @@ public class GameActivity extends Activity implements SmartGLViewController {
                 if (place == 1) {
                     level++;
                     saveData();
-                    sfxId = Assets.instance().sfxFinished;
+                    sfxId = sfxFinished;
                 } else {
-                    sfxId = Assets.instance().sfxFail;
+                    sfxId = sfxFail;
                 }
 
-                Assets.instance().playSoundMono(sfxId);
+                playSoundMono(sfxId);
+                bonus.setVisible(false);
+                bonusShield.setVisible(false);
             }
             speed = 0;
             gameover = true;
             float dy = 0.05f;
             flyaway(dy);
-            float camX = camera.getPosX();
+            float cX = camera.getPosX();
 
             player.addRotY(dy * 100);
 
-            if (camX > playerPosX) {
-                camX -= dy;
-                float camY = camera.getPosY();
-                float camZ = camera.getPosZ();
-                camera.setPosition(camX, camY - dy / 2, camZ - dy / 2);
+            if (cX > playerPosX) {
+                cX -= dy;
+                float cY = camera.getPosY();
+                float cZ = camera.getPosZ();
+                camera.setPosition(cX, cY, cZ);
             }
         }
 
@@ -745,15 +859,17 @@ public class GameActivity extends Activity implements SmartGLViewController {
         sideRoadDown.setPos(sideUX, sideUY + dy, sideUZ);
     }
 
+    // TODO Optimize
     private void updateBots(float x) {
-        float dz1 = roadSegmentLength / 2 - deltaZ * 2;
+        float dz1 = ROAD_SEGMENT_LENGTH / 2 - DELTA_Z * 2;
         for (int i = 0; i < bots.size(); i++) {
             Object3D object3D = bots.get(i);
             if (!object3D.isVisible()) {
-                float dx = random.nextInt(roadSegmentLength / 4) + x;
-                float dz = random.nextFloat() * dz1 + deltaZ;
+//                float dx = random.nextInt(ROAD_SEGMENT_LENGTH / 8);
+                float dz = random.nextFloat() * dz1 + DELTA_Z;
                 if (random.nextBoolean()) dz *= -1;
-                object3D.setPos(dx, -0.4f, dz);
+//                object3D.setPos(playerPosX + HALF_FAR_LENGTH + ROAD_SEGMENT_LENGTH * i, -0.4f, dz);
+                object3D.setPos(x, -0.4f, dz);
                 object3D.setVisible(true);
                 break;
             }
@@ -766,14 +882,12 @@ public class GameActivity extends Activity implements SmartGLViewController {
             float ox = object3D.getPosX();
             float oy = object3D.getPosY();
             float oz = object3D.getPosZ();
-            float dx1 = playerPosX - halfFarLength;
-            float dx2 = playerPosX + halfFarLength;
+            float dx1 = playerPosX - HALF_FAR_LENGTH;
+            float dx2 = playerPosX + HALF_FAR_LENGTH;
             if ((ox > dx1) && (ox < dx2)) {
                 float distance = getDistance(ox, oz, playerPosX, playerPosZ);
                 if (distance < 1.7f) {
-                    Assets.instance().playSoundMono(Assets.instance().sfxHit);
-
-                    speed = speedBase;
+                    playSoundMono(sfxHit);
                 }
 
                 if (ox < playerPosX) {
@@ -797,7 +911,7 @@ public class GameActivity extends Activity implements SmartGLViewController {
                 }
 
                 float sinAlpha = (float) Math.sin(ox * 0.1f);
-                oz = sinAlpha * roadSegmentLength / 2 + deltaZ;
+                oz = sinAlpha * ROAD_SEGMENT_LENGTH / 2 + DELTA_Z;
 
                 float alpha = (float) Math.toDegrees(Math.asin(sinAlpha));
 
@@ -812,27 +926,27 @@ public class GameActivity extends Activity implements SmartGLViewController {
     }
 
     private void updateEnvironment() {
-
-        float farFromPlayer = playerPosX - farLength;
-        float dx1 = playerPosX - halfFarLength;
-        float dx2 = playerPosX + halfFarLength;
+        float farFromPlayer = playerPosX - FAR_LENGTH;
+        float dx1 = playerPosX - HALF_FAR_LENGTH;
+        float dx2 = playerPosX + HALF_FAR_LENGTH;
 
         for (int i = 0; i < road.size(); i++) {
             Object3D object3D = road.get(i);
 
             float x = object3D.getPosX();
-            float y = roadPosY;
+            float y = ROAD_POS_Y;
             float z = object3D.getPosZ();
 
             if (x < dx1) {
-                object3D.setPos(x + farLength, y, z);
-                updateBots(object3D.getPosX());
+                x += FAR_LENGTH;
+                object3D.setPos(x, y, z);
+                updateBots(x);
                 break;
             }
 
             if (x > dx2) {
-                object3D.setPos(x - farLength, y, z);
-                updateBots(object3D.getPosX());
+                object3D.setPos(x - FAR_LENGTH, y, z);
+//                updateBots(object3D.getPosX());
                 break;
             }
         }
@@ -843,17 +957,17 @@ public class GameActivity extends Activity implements SmartGLViewController {
             float z = object3D.getPosZ();
 
             if (x < dx1) {
-                object3D.setPos(x + farLength, y, z);
+                object3D.setPos(x + FAR_LENGTH, y, z);
             }
 
             if (x > dx2) {
-                object3D.setPos(x - farLength, y, z);
+                object3D.setPos(x - FAR_LENGTH, y, z);
             }
         }
 
         float bridgeX = goBridge.getX();
         if (bridgeX < farFromPlayer) {
-            goBridge.setX(bridgeX + farLength * 2);
+            goBridge.setX(bridgeX + FAR_LENGTH * 2);
             for (int i = 0; i < uptown.size(); i++) {
                 Object3D object3D = uptown.get(i);
                 object3D.setVisible(random.nextBoolean());
@@ -865,7 +979,6 @@ public class GameActivity extends Activity implements SmartGLViewController {
             }
         }
 
-
         float sideRoadUpPosY = sideRoadUp.getPosY();
         float sideRoadUpPosZ = sideRoadUp.getPosZ();
 
@@ -874,10 +987,16 @@ public class GameActivity extends Activity implements SmartGLViewController {
         float sideRoadDownPosZ = sideRoadDown.getPosZ();
 
         if (sideRoadPosX < farFromPlayer) {
-            sideRoadUp.setPos(sideRoadPosX + farLength * 2, sideRoadUpPosY, sideRoadUpPosZ);
-            sideRoadDown.setPos(sideRoadPosX + farLength * 2, sideRoadDownPosY, sideRoadDownPosZ);
+            sideRoadUp.setPos(sideRoadPosX + FAR_LENGTH * 2, sideRoadUpPosY, sideRoadUpPosZ);
+            sideRoadDown.setPos(sideRoadPosX + FAR_LENGTH * 2, sideRoadDownPosY, sideRoadDownPosZ);
             sideRoadDown.setVisible(random.nextBoolean());
             sideRoadUp.setVisible(random.nextBoolean());
+        }
+
+        // Bonus
+        if (bonus.getPosX() < farFromPlayer && !bonusActive) {
+            bonus.setPos(dx2 + random.nextInt(ROAD_SEGMENT_LENGTH * 5), 0.5f, (random.nextInt(ROAD_SEGMENT_LENGTH * 2) - ROAD_SEGMENT_LENGTH) * 0.5f);
+            bonus.setVisible(random.nextInt(10) > BONUS_CHANCE);
         }
     }
 
@@ -952,6 +1071,5 @@ public class GameActivity extends Activity implements SmartGLViewController {
             this.finish();
         return super.onKeyUp(keyCode, event);
     }
-
 
 }
