@@ -10,24 +10,25 @@ public class Particle {
 
     private final Object3D object3D;
     private float x, y, z, x0, y0, z0;
-    private final float theta;
-    private final float phi;
     private float r = 0.1f;
     private boolean visible;
 
+    private final float SIN_THETA_COS_PHI, SIN_THETA_SIN_PHI, COS_THETA;
+
     public Particle(float theta, float phi, Object3D object3D) {
-        this.theta = theta;
-        this.phi = phi;
         this.object3D = object3D;
+        SIN_THETA_COS_PHI = (float) (Math.sin(theta) * Math.cos(phi));
+        SIN_THETA_SIN_PHI = (float) (Math.sin(theta) * Math.sin(phi));
+        COS_THETA = (float) Math.cos(theta);
         x0 = object3D.getPosX();
         y0 = object3D.getPosY();
         z0 = object3D.getPosZ();
     }
 
     private void compute() {
-        x = (float) (r * Math.sin(theta) * Math.cos(phi));
-        y = (float) (r * Math.sin(theta) * Math.sin(phi));
-        z = (float) (r * Math.cos(theta));
+        z = r * SIN_THETA_COS_PHI;
+        y = r * SIN_THETA_SIN_PHI;
+        x = r * COS_THETA;
     }
 
     public void setPosition(float x, float y, float z) {

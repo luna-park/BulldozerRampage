@@ -9,6 +9,9 @@ import fr.arnaudguyon.smartgl.opengl.RenderPassObject3D;
 import fr.arnaudguyon.smartgl.opengl.Texture;
 import fr.arnaudguyon.smartgl.tools.WavefrontModel;
 
+import static org.lunapark.dev.bullramp.Const.EXPLOSION_SPEED;
+import static org.lunapark.dev.bullramp.Const.NUM_PARTICLES;
+
 /**
  * Created by znak on 14.01.2017.
  */
@@ -16,7 +19,6 @@ import fr.arnaudguyon.smartgl.tools.WavefrontModel;
 public class Explosion {
 
     private float x, y, z, size;
-    private final int num = 5;
     private final int objFile;
     private final Texture texture;
     private ArrayList<Particle> particles;
@@ -35,8 +37,8 @@ public class Explosion {
 
     private void create() {
         particles = new ArrayList<>();
-        for (int i = 1; i < num; i++) {
-            for (int j = 1; j < num; j++) {
+        for (int i = 1; i < NUM_PARTICLES; i++) {
+            for (int j = 1; j < NUM_PARTICLES; j++) {
                 WavefrontModel model = new WavefrontModel.Builder(context, objFile)
                         .addTexture("", texture)
                         .create();
@@ -45,8 +47,8 @@ public class Explosion {
 //                object3D.setScale(0.5f, 0.5f, 0.5f);
                 object3D.setVisible(false);
                 renderPassObject3D.addObject(object3D);
-                float theta = 180 * i / num;
-                float phi = 180 * j / num;
+                float theta = 90 * i / NUM_PARTICLES;
+                float phi = 90 * j / NUM_PARTICLES;
                 Particle particle = new Particle(theta, phi, object3D);
                 particles.add(particle);
             }
@@ -56,7 +58,7 @@ public class Explosion {
     public void update() {
         if (visible) {
             if (size < 10) {
-                size += 0.5f;
+                size += EXPLOSION_SPEED;
                 for (int i = 0; i < particles.size(); i++) {
                     particles.get(i).setDistance(size);
                 }
