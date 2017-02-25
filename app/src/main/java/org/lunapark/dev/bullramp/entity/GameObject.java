@@ -14,8 +14,23 @@ public class GameObject {
     private ArrayList<Point3D> point3Ds;
     private float x, y, z;
 
+    private boolean visible;
+
     public GameObject() {
+        visible = true;
     }
+
+    public boolean isVisible() {
+        return visible;
+    }
+
+    public void setVisible(boolean visible) {
+        this.visible = visible;
+        for (int i = 0; i < object3Ds.size(); i++) {
+            object3Ds.get(i).setVisible(visible);
+        }
+    }
+
 
     public void setObjects(ArrayList<Object3D> object3Ds) {
         this.object3Ds = object3Ds;

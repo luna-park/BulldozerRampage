@@ -6,7 +6,7 @@ import fr.arnaudguyon.smartgl.opengl.Object3D;
  * Created by znak on 14.01.2017.
  */
 
-public class Particle {
+class Particle {
 
     private final Object3D object3D;
     private float x, y, z, x0, y0, z0;
@@ -26,9 +26,9 @@ public class Particle {
     }
 
     private void compute() {
-        z = r * SIN_THETA_COS_PHI;
-        y = r * SIN_THETA_SIN_PHI;
-        x = r * COS_THETA;
+        z = r * SIN_THETA_COS_PHI;  // x
+        y = r * SIN_THETA_SIN_PHI;  // y
+        x = r * COS_THETA;          // z
     }
 
     public void setPosition(float x, float y, float z) {
@@ -37,10 +37,10 @@ public class Particle {
         this.z0 = z;
     }
 
-    public boolean isVisible() {
-        visible = object3D.isVisible();
-        return visible;
-    }
+//    public boolean isVisible() {
+//        visible = object3D.isVisible();
+//        return visible;
+//    }
 
     public void setVisible(boolean visible) {
         this.visible = visible;
